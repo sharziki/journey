@@ -1,0 +1,203 @@
+journey "User Onboarding" {
+  description "Complete signup through workspace creation and team invitation"
+
+  # --- Entities: the nouns of the system ---
+
+  entity User {
+    email       string  unique
+    password    string  hashed
+    status      state(pending -> active -> suspended)
+    created_at  timestamp  auto
+  }
+
+  entity Workspace {
+    name        string
+    owner       User
+    created_at  timestamp  auto
+  }
+
+  entity Invitation {
+    workspace   Workspace
+    email       string
+    role        enum(admin, member, viewer)
+    status      state(pending -> accepted -> expired)
+    token       string  unique  auto
+    created_at  timestamp  auto
+  }
+
+  # --- Steps: the verbs of the system ---
+
+  step signup {
+    actor anonymous
+    input {
+      email     string  required  format(email)
+      password  string  required  min(8)
+    }
+    action {
+      user = create User(email: input.email, password: input.password, status: pending)
+      send email(template: "verify_email", to: user.email, data: { token: user.verification_token })
+    }
+    output {
+      user_id   user.id
+      message   "Check your email to verify your account"
+    }
+    errors {
+      email_taken  "A user with this email already exists"  409
+    }
+  }
+
+  step verify_email {
+    requires signup
+    actor anonymous
+    input {
+      token  string  required
+    }
+    action {
+      user = find User(verification_token: input.token)
+      user.status -> active
+    }
+    output {
+      message  "Email verified successfully"
+    }
+    errors {
+      invalid_token  "Verification token is invalid or expired"  400
+    }
+  }
+
+  step login {
+    requires verify_email
+    actor anonymous
+    input {
+      email     string  required  format(email)
+      password  string  required
+    }
+    action {
+      user = find User(email: input.email)
+      verify password(input.password, user.password)
+      session = create_session(user)
+    }
+    output {
+      token       session.token
+      user_id     user.id
+      expires_at  session.expires_at
+    }
+    errors {
+      invalid_credentials  "Email or password is incorrect"  401
+      account_pending      "Please verify your email first"  403
+    }
+  }
+
+  step create_workspace {
+    requires login
+    actor User  authenticated
+    input {
+      name  string  required  min(2)  max(50)
+    }
+    action {
+      workspace = create Workspace(name: input.name, owner: actor)
+    }
+    output {
+      workspace_id    workspace.id
+      workspace_name  workspace.name
+    }
+    errors {
+      limit_reached  "You've reached the maximum number of workspaces"  403
+    }
+  }
+
+  step invite_member {
+    requires create_workspace
+    actor User  authenticated
+    input {
+      workspace_id  id        required
+      email         string    required  format(email)
+      role          enum(admin, member, viewer)  default(member)
+    }
+    action {
+      workspace = find Workspace(id: input.workspace_id, owner: actor)
+      invitation = create Invitation(
+        workspace: workspace,
+        email: input.email,
+        role: input.role,
+        status: pending
+      )
+      send email(template: "workspace_invite", to: input.email, data: {
+        workspace_name: workspace.name,
+        inviter: actor.email,
+        token: invitation.token
+      })
+    }
+    output {
+      invitation_id  invitation.id
+      message        "Invitation sent"
+    }
+    errors {
+      not_owner        "You don't own this workspace"  403
+      already_invited  "This email has already been invited"  409
+    }
+  }
+
+  step accept_invite {
+    requires invite_member
+    actor User  authenticated
+    input {
+      token  string  required
+    }
+    action {
+      invitation = find Invitation(token: input.token, status: pending)
+      invitation.status -> accepted
+      add_member(invitation.workspace, actor, invitation.role)
+    }
+    output {
+      workspace_id    invitation.workspace.id
+      workspace_name  invitation.workspace.name
+      role            invitation.role
+    }
+    errors {
+      invalid_invite  "This invitation is invalid or has expired"  400
+      already_member  "You're already a member of this workspace"  409
+    }
+  }
+
+  # --- Test scenarios: the journey walkthrough ---
+
+  test "full onboarding" {
+    # These run sequentially, each step feeding into the next
+    do signup(email: "alice@example.com", password: "securepass123")
+      expect status 201
+      expect output.user_id exists
+      capture user_id
+
+    do verify_email(token: last_email.token)
+      expect status 200
+
+    do login(email: "alice@example.com", password: "securepass123")
+      expect status 200
+      capture token
+
+    do create_workspace(name: "Acme Corp")  as authenticated(token)
+      expect status 201
+      capture workspace_id
+
+    do invite_member(workspace_id: workspace_id, email: "bob@example.com", role: admin)  as authenticated(token)
+      expect status 201
+  }
+
+  test "duplicate signup rejected" {
+    do signup(email: "alice@example.com", password: "securepass123")
+      expect status 201
+
+    do signup(email: "alice@example.com", password: "differentpass")
+      expect status 409
+      expect error email_taken
+  }
+
+  test "login before verification fails" {
+    do signup(email: "unverified@example.com", password: "securepass123")
+      expect status 201
+
+    do login(email: "unverified@example.com", password: "securepass123")
+      expect status 403
+      expect error account_pending
+  }
+}
