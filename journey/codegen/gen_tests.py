@@ -19,7 +19,7 @@ def _route_path(step_name: str) -> str:
         return "/signup"
     if "login" in step_name:
         return "/login"
-    if "verify" in step_name:
+    if step_name == "verify_email":
         return "/verify-email"
     if "create_workspace" in step_name:
         return "/workspaces"
@@ -35,6 +35,12 @@ def generate_tests(spec: JourneySpec) -> str:
 
     slug = spec.name.lower().replace(" ", "_").replace("__", "_")
     route_prefix = f"/journey/{slug.replace('_', '-')}"
+    needs_verification_token = any(
+        cmd.step_name == "verify_email"
+        for test_block in spec.tests
+        for cmd in test_block.commands
+    )
+    model_import = "from .models import Base, User" if needs_verification_token else "from .models import Base"
 
     lines = [
         '"""',
@@ -44,15 +50,16 @@ def generate_tests(spec: JourneySpec) -> str:
         "Run: pytest test_journey.py -v",
         '"""',
         "",
+        "import anyio",
+        "import httpx",
         "import pytest",
-        "from fastapi.testclient import TestClient",
-        "from sqlalchemy import create_engine, event",
+        "from sqlalchemy import create_engine",
         "from sqlalchemy.orm import sessionmaker",
         "from sqlalchemy.pool import StaticPool",
         "",
         "from .app import app",
         "from .database import get_db",
-        "from .models import Base, User",
+        model_import,
         "",
         '# In-memory SQLite shared across threads (StaticPool keeps one connection alive)',
         'TEST_ENGINE = create_engine(',
@@ -79,28 +86,19 @@ def generate_tests(spec: JourneySpec) -> str:
         "    finally:",
         "        session.close()",
         "",
-        "",
-        "@pytest.fixture",
-        "def client(db):",
-        "    def _get_test_db():",
-        "        try:",
-        "            yield db",
-        "        finally:",
-        "            pass",
-        "    app.dependency_overrides[get_db] = _get_test_db",
-        "    with TestClient(app) as c:",
-        "        yield c",
-        "    app.dependency_overrides.clear()",
-        "",
-        "",
-        "def get_verification_token(db, email: str) -> str:",
-        '    """Read verification token from DB (simulates reading email)."""',
-        "    user = db.query(User).filter(User.email == email).first()",
-        '    assert user is not None, f"No user found with email {email}"',
-        '    assert user.verification_token is not None, "No verification token"',
-        "    return user.verification_token",
-        "",
     ]
+
+    if needs_verification_token:
+        lines.extend([
+            "",
+            "def get_verification_token(db, email: str) -> str:",
+            '    """Read verification token from DB (simulates reading email)."""',
+            "    user = db.query(User).filter(User.email == email).first()",
+            '    assert user is not None, f"No user found with email {email}"',
+            '    assert user.verification_token is not None, "No verification token"',
+            "    return user.verification_token",
+            "",
+        ])
 
     for test_block in spec.tests:
         lines.append("")
@@ -117,21 +115,34 @@ def _gen_test_class(block: TestBlock, prefix: str, spec: JourneySpec) -> list[st
         "",
     ]
 
-    # Determine if we need the db fixture
-    needs_db = any(
-        cmd.step_name == "verify_email" for cmd in block.commands
-    )
-
-    fixture_params = "self, client, db" if needs_db else "self, client"
-
     method_name = f"test_{block.name.replace(' ', '_').replace('-', '_')}"
-    lines.append(f"    def {method_name}({fixture_params}):")
+    lines.extend([
+        f"    def {method_name}(self, db):",
+        "        async def run():",
+        "            async def _get_test_db():",
+        "                try:",
+        "                    yield db",
+        "                finally:",
+        "                    pass",
+        "            app.dependency_overrides[get_db] = _get_test_db",
+        "            transport = httpx.ASGITransport(app=app)",
+        "            try:",
+        "                async with httpx.AsyncClient(",
+        "                    transport=transport, base_url=\"http://testserver\"",
+        "                ) as client:",
+    ])
 
     # Track captured variables
     captured = {}
 
     for cmd in block.commands:
-        lines.extend(_gen_test_command(cmd, prefix, captured, spec))
+        lines.extend(f"            {line}" if line else line for line in _gen_test_command(cmd, prefix, captured, spec))
+
+    lines.extend([
+        "            finally:",
+        "                app.dependency_overrides.clear()",
+        "        anyio.run(run)",
+    ])
 
     return lines
 
@@ -155,13 +166,13 @@ def _gen_test_command(cmd: TestCommand, prefix: str, captured: dict, spec: Journ
 
     # Build request params
     if cmd.auth_token_var:
-        lines.append(f"        resp = client.post(")
+        lines.append(f"        resp = await client.post(")
         lines.append(f'            "{path}",')
         lines.append(f"            json={json_body},")
         lines.append(f'            params={{"token": {cmd.auth_token_var}}},')
         lines.append(f"        )")
     else:
-        lines.append(f"        resp = client.post(")
+        lines.append(f"        resp = await client.post(")
         lines.append(f'            "{path}",')
         lines.append(f"            json={json_body},")
         lines.append(f"        )")

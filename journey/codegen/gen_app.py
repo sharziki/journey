@@ -34,6 +34,6 @@ app.include_router(router)
 
 
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
     init_db()
 '''

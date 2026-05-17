@@ -37,7 +37,7 @@ def _route_path(step: Step) -> str:
         return "/signup"
     if "login" in step.name:
         return "/login"
-    if "verify" in step.name:
+    if step.name == "verify_email":
         return "/verify-email"
     if "create_workspace" in step.name:
         return "/workspaces"
@@ -129,7 +129,7 @@ def generate_routes(spec: JourneySpec) -> str:
         "_sessions: dict[str, dict] = {}",
         "",
         "",
-        "def get_current_user(token: str, db: Session = Depends(get_db)):",
+        "async def get_current_user(token: str, db: Session = Depends(get_db)):",
         '    session = _sessions.get(token)',
         '    if not session:',
         '        raise HTTPException(status_code=401, detail="Invalid or expired token")',
@@ -167,7 +167,7 @@ def _gen_route(step: Step, spec: JourneySpec) -> list[str]:
 
     lines = [
         f"@router.{method}({decorator_kwargs})",
-        f"def {step.name}({', '.join(params)}):",
+        f"async def {step.name}({', '.join(params)}):",
     ]
 
     # Generate error checks first
@@ -256,13 +256,17 @@ def _gen_create_action(action: Action, step: Step, spec: JourneySpec, variables:
 
     # Build constructor kwargs
     kwargs = []
+    entity = spec.get_entity(entity_name)
     for key, val in action.params.items():
         if key.startswith("data."):
             continue  # Nested data for send actions, skip
         py_val = _map_param_value(val, step, variables)
+        field = next((f for f in entity.fields if f.name == key), None) if entity else None
         # Map field names that might differ in model
         if key == "password":
             kwargs.append(f"password_hash=_hash_password({py_val})")
+        elif field and field.ref_entity:
+            kwargs.append(f"{key}_id={py_val}.id")
         elif key == "owner":
             kwargs.append(f"owner_id={py_val}.id")
         elif key == "workspace":

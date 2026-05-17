@@ -1,0 +1,187 @@
+journey "Journey Spine" {
+  description "A living agent-readable product spine that turns stories into working software"
+
+  # Journey is the editable intent layer. Agents read it as a brief, a goal,
+  # and an acceptance contract, then keep the implementation aligned.
+
+  entity Agent {
+    name        string  unique
+    role        enum(writer, builder, reviewer)
+    status      state(unbriefed -> briefed -> building -> verifying -> healed)
+    created_at  timestamp  auto
+  }
+
+  entity JourneyFile {
+    title       string  unique
+    body        string
+    status      state(draft -> normalized -> implemented -> verified -> healing)
+    created_at  timestamp  auto
+  }
+
+  entity Artifact {
+    spine_file  JourneyFile
+    kind        enum(api, model, artifact_test, docs)
+    path        string
+    status      state(planned -> generated -> passing -> repaired)
+    created_at  timestamp  auto
+  }
+
+  entity Finding {
+    spine_file  JourneyFile
+    severity    enum(info, warning, blocker)
+    summary     string
+    status      state(open -> fixed -> accepted)
+    created_at  timestamp  auto
+  }
+
+  step brief_agent {
+    actor anonymous
+    input {
+      name  string  required
+      role  enum(writer, builder, reviewer)  default(builder)
+    }
+    action {
+      agent = create Agent(name: input.name, role: input.role, status: briefed)
+    }
+    output {
+      agent_id  agent.id
+      message   "Agent briefed from the Journey spine"
+    }
+  }
+
+  step write_journey {
+    actor anonymous
+    input {
+      title  string  required  min(3)
+      body   string  required  min(20)
+    }
+    action {
+      spine = create JourneyFile(title: input.title, body: input.body, status: draft)
+    }
+    output {
+      journey_id  spine.id
+      status      spine.status
+    }
+  }
+
+  step normalize_journey {
+    requires write_journey
+    actor anonymous
+    input {
+      journey_id  id  required
+    }
+    action {
+      spine = find JourneyFile(id: input.journey_id)
+      spine.status -> normalized
+    }
+    output {
+      journey_id  spine.id
+      status      spine.status
+      message     "Story normalized into an executable spine"
+    }
+  }
+
+  step generate_artifact {
+    requires normalize_journey
+    actor anonymous
+    input {
+      journey_id  id  required
+      kind        enum(api, model, artifact_test, docs)  default(api)
+      path        string  required
+    }
+    action {
+      spine = find JourneyFile(id: input.journey_id, status: normalized)
+      artifact = create Artifact(spine_file: spine, kind: input.kind, path: input.path, status: generated)
+    }
+    output {
+      artifact_id  artifact.id
+      path         artifact.path
+      status       artifact.status
+    }
+  }
+
+  step verify_artifact {
+    requires generate_artifact
+    actor anonymous
+    input {
+      artifact_id  id  required
+    }
+    action {
+      artifact = find Artifact(id: input.artifact_id, status: generated)
+      artifact.status -> passing
+    }
+    output {
+      artifact_id  artifact.id
+      status       artifact.status
+      message      "Generated work satisfies the Journey acceptance contract"
+    }
+  }
+
+  step report_gap {
+    requires generate_artifact
+    actor anonymous
+    input {
+      journey_id  id      required
+      severity    enum(info, warning, blocker)  default(blocker)
+      summary     string  required  min(10)
+    }
+    action {
+      spine = find JourneyFile(id: input.journey_id)
+      finding = create Finding(spine_file: spine, severity: input.severity, summary: input.summary, status: open)
+    }
+    output {
+      finding_id  finding.id
+      status      finding.status
+    }
+  }
+
+  step heal_gap {
+    requires report_gap
+    actor anonymous
+    input {
+      finding_id  id  required
+    }
+    action {
+      finding = find Finding(id: input.finding_id, status: open)
+      finding.status -> fixed
+    }
+    output {
+      finding_id  finding.id
+      status      finding.status
+      message     "Implementation repaired against the Journey spine"
+    }
+  }
+
+  test "story becomes verified software" {
+    do brief_agent(name: "builder-agent", role: builder)
+      expect status 201
+      capture agent_id
+
+    do write_journey(title: "Invite teammate", body: "A workspace owner invites a teammate and the system proves the invitation flow works.")
+      expect status 201
+      capture journey_id
+
+    do normalize_journey(journey_id: journey_id)
+      expect status 200
+
+    do generate_artifact(journey_id: journey_id, kind: api, path: "generated/routes.py")
+      expect status 201
+      capture artifact_id
+
+    do verify_artifact(artifact_id: artifact_id)
+      expect status 200
+  }
+
+  test "gap becomes repair work" {
+    do write_journey(title: "Self healing loop", body: "When implementation drifts from the journey, the agent records a gap and repairs the code.")
+      expect status 201
+      capture journey_id
+
+    do report_gap(journey_id: journey_id, severity: blocker, summary: "Generated route does not satisfy acceptance")
+      expect status 201
+      capture finding_id
+
+    do heal_gap(finding_id: finding_id)
+      expect status 200
+  }
+}
