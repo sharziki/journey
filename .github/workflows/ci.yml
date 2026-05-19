@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m pytest
+      - name: Validate examples
+        run: |
+          journey validate examples/auth_workspaces.journey --strict
+          journey validate examples/journey_spine.journey --strict
+      - name: Generated acceptance tests
+        run: |
+          journey test examples/auth_workspaces.journey --robustness strict --clean
+          journey test examples/journey_spine.journey --robustness strict --clean
+      - name: Build package
+        run: |
+          python -m build
+          python -m twine check dist/*

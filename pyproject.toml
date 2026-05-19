@@ -6,7 +6,24 @@ build-backend = "setuptools.build_meta"
 name = "journey-lang"
 version = "0.1.0"
 description = "Journey — a universal story format for software agents. Write the journey; agents build, test, and repair the software."
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Journey contributors" },
+]
+keywords = ["agents", "codegen", "fastapi", "pytest", "dsl", "ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
@@ -17,8 +34,23 @@ dependencies = [
     "httpx>=0.25.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/journey-lang/journey"
+Repository = "https://github.com/journey-lang/journey"
+Issues = "https://github.com/journey-lang/journey/issues"
+
 [tool.setuptools.packages.find]
 include = ["journey*"]
 
 [project.scripts]
 journey = "journey.cli.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

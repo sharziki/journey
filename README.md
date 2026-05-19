@@ -59,6 +59,16 @@ journey inspect examples/journey_spine.journey
 journey test examples/journey_spine.journey
 ```
 
+For a publish/CI-grade pass:
+
+```bash
+python -m pytest
+journey validate examples/auth_workspaces.journey --strict
+journey test examples/auth_workspaces.journey --robustness strict --clean
+python -m build
+python -m twine check dist/*
+```
+
 ## Journey Files
 
 A `.journey` file is an executable product story. This example describes a backend workflow, which is the first compiler target:
@@ -248,6 +258,27 @@ This FastAPI path proves the shape, but it should not define the ceiling. A good
 | `journey test <file>` | Compile + run all test scenarios |
 | `journey run <file>` | Compile + start uvicorn with hot reload |
 | `journey inspect <file>` | Pretty-print the parsed AST |
+| `journey validate <file>` | Validate cross-references before generation |
+| `journey manifest <file>` | Generate `JOURNEY.md` and `journey.agent.json` for agents |
+
+Robustness profiles are designed to map cleanly to checkboxes in tools:
+
+```bash
+journey compile examples/auth_workspaces.journey --robustness strict --clean
+journey test examples/auth_workspaces.journey --strict
+```
+
+| Profile | Intended use |
+|---------|--------------|
+| `fast` | Quick parse/generate loop while drafting |
+| `standard` | Default open-source workflow: validate, generate app, generate agent manifest |
+| `strict` | Publish/CI mode: clean output, run generated tests, fail on warnings |
+
+Generated projects include:
+
+- `JOURNEY.md` — an agent-readable implementation checklist
+- `journey.agent.json` — structured entities, steps, tests, and robustness settings
+- `test_journey.py` — acceptance tests generated from the journey
 
 ## Project Structure
 
@@ -264,6 +295,13 @@ journey/
 │   ├── gen_tests.py    # Test blocks → pytest harness
 │   ├── gen_database.py # DB engine + session setup
 │   └── gen_app.py      # FastAPI app entrypoint
+├── adapters/
+│   ├── fastapi.py      # Adapter wrapper + agent manifest output
+│   └── markdown.py     # Agent-readable markdown summaries
+├── core/
+│   ├── config.py       # Robustness profiles
+│   ├── normalize.py    # Stable normalized graph for agents
+│   └── validation.py   # Framework-neutral semantic checks
 └── cli/
     └── main.py         # compile, test, run, inspect commands
 ```
@@ -340,3 +378,17 @@ This is early. If the idea resonates, open an issue or PR. The most impactful co
 ## License
 
 MIT
+
+## Publishing
+
+Build artifacts are standard Python distributions:
+
+```bash
+python -m pip install -e ".[dev]"
+rm -rf dist build *.egg-info
+python -m build
+python -m twine check dist/*
+python -m twine upload dist/*
+```
+
+The generated `journey.agent.json` file is the intended machine-readable handoff for coding agents. The generated `JOURNEY.md` file is the intended human/agent checklist for implementation progress.
