@@ -1,8 +1,10 @@
 import json
+from argparse import Namespace
 
 import pytest
 
 from journey.adapters.fastapi import generate
+from journey.cli.main import cmd_agent
 from journey.core.config import RobustnessConfig
 from journey.core.normalize import normalize
 from journey.core.validation import JourneyValidationError, validate
@@ -103,3 +105,23 @@ def test_adapter_raises_for_invalid_spec(tmp_path):
 
     with pytest.raises(JourneyValidationError):
         generate(spec, tmp_path)
+
+
+def test_agent_command_writes_handoff_without_tests(tmp_path):
+    args = Namespace(
+        file="examples/journey_spine.journey",
+        output=str(tmp_path),
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+        no_test=True,
+    )
+
+    cmd_agent(args)
+
+    assert (tmp_path / "JOURNEY.md").exists()
+    manifest = json.loads((tmp_path / "journey.agent.json").read_text())
+    assert manifest["schema"] == "journey.agent.v1"
+    assert manifest["slug"] == "journey-spine"

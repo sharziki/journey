@@ -121,8 +121,7 @@ Generate and run it:
 
 ```bash
 python -m pip install -e ".[dev]"
-journey compile examples/auth_workspaces.journey --robustness strict --clean
-journey test examples/auth_workspaces.journey --robustness strict --clean
+journey agent examples/auth_workspaces.journey
 journey run examples/auth_workspaces.journey
 ```
 
@@ -154,6 +153,26 @@ generated/auth_workspaces/
 ```
 
 The output is normal application code. You can inspect it, edit it, test it, deploy it, or replace it with another adapter.
+
+## Agent Mode
+
+Any AI coding terminal can use the same ritual:
+
+```bash
+find . -name "*.journey" -not -path "./generated/*"
+journey agent <file.journey>
+```
+
+`journey agent` prepares the handoff an agent needs:
+
+- validates the journey strictly
+- generates the implementation
+- writes `JOURNEY.md`
+- writes `journey.agent.json`
+- runs generated acceptance tests
+- prints the next loop an agent should follow
+
+This does not spawn background agents yet. It makes the repo self-onboarding for agents that understand shell commands and instruction files like `AGENTS.md`.
 
 ## Use Cases
 
@@ -418,6 +437,7 @@ This FastAPI path proves the shape, but it should not define the ceiling. A good
 
 | Command | What it does |
 |---------|-------------|
+| `journey agent <file>` | Prepare agent handoff files, generate implementation, and run acceptance tests |
 | `journey compile <file>` | Parse and generate FastAPI project |
 | `journey test <file>` | Compile + run all test scenarios |
 | `journey run <file>` | Compile + start uvicorn with hot reload |

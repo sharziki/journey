@@ -200,6 +200,52 @@ def cmd_manifest(args):
         print(path)
 
 
+def cmd_agent(args):
+    """Prepare and verify a journey for coding agents."""
+    from ..parser import parse_file
+    from ..adapters.fastapi import generate
+
+    source = args.file
+    output = args.output or _default_output_dir(source)
+    config = _config_from_args(args).with_overrides(
+        strict_validation=True,
+        fail_on_warnings=True,
+        generate_agent_manifest=True,
+        generate_markdown_summary=True,
+    )
+
+    print(f"Reading journey source of truth: {source}")
+    spec = parse_file(source)
+
+    print(f"Preparing agent workspace: {output}/")
+    result = generate(spec, output, config=config)
+    for path in result.files:
+        print(f"  {path}")
+
+    print("\nAgent handoff:")
+    print(f"  1. Read {Path(output) / 'JOURNEY.md'}")
+    print(f"  2. Read {Path(output) / 'journey.agent.json'}")
+    print("  3. Implement or repair the code until acceptance passes")
+    print(f"  4. Re-run: journey agent {source}")
+
+    if args.no_test:
+        print("\nSkipped generated tests (--no-test).")
+        return
+
+    print("\nRunning generated acceptance tests...")
+    output_path = Path(output).resolve()
+    test_file = output_path / "test_journey.py"
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", str(test_file)],
+        cwd=str(output_path.parent),
+    )
+    if result.returncode == 0:
+        print("\nJourney accepted: generated implementation satisfies current acceptance tests.")
+    else:
+        print("\nJourney needs repair: use the failure output as the next agent work item.")
+    sys.exit(result.returncode)
+
+
 def _default_output_dir(source: str) -> str:
     """Derive output directory from source file."""
     name = Path(source).stem
@@ -272,6 +318,13 @@ def main():
     p_manifest.add_argument("-o", "--output", help="Output directory")
     _add_robustness_args(p_manifest)
 
+    # agent
+    p_agent = sub.add_parser("agent", help="Prepare a journey for an AI coding agent")
+    p_agent.add_argument("file", help="Path to .journey file")
+    p_agent.add_argument("-o", "--output", help="Output directory")
+    p_agent.add_argument("--no-test", action="store_true", help="Prepare agent artifacts without running generated tests")
+    _add_robustness_args(p_agent)
+
     args = parser.parse_args()
 
     if args.command == "compile":
@@ -286,6 +339,8 @@ def main():
         cmd_validate(args)
     elif args.command == "manifest":
         cmd_manifest(args)
+    elif args.command == "agent":
+        cmd_agent(args)
     else:
         parser.print_help()
 
