@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620" role="img" aria-labelledby="title desc">
+  <title id="title">Journey terminal demo</title>
+  <desc id="desc">A terminal-style screenshot showing Journey compiling a journey file, generating FastAPI files, and passing pytest acceptance tests.</desc>
+  <rect width="1100" height="620" rx="18" fill="#111827"/>
+  <rect x="0" y="0" width="1100" height="52" rx="18" fill="#1f2937"/>
+  <circle cx="28" cy="26" r="7" fill="#ef4444"/>
+  <circle cx="52" cy="26" r="7" fill="#f59e0b"/>
+  <circle cx="76" cy="26" r="7" fill="#10b981"/>
+  <text x="100" y="32" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#d1d5db">journey demo</text>
+
+  <text x="38" y="92" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#34d399">$ journey agent examples/auth_workspaces.journey</text>
+  <text x="38" y="132" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" fill="#e5e7eb">Reading journey source of truth: examples/auth_workspaces.journey</text>
+  <text x="38" y="166" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" fill="#e5e7eb">Preparing agent workspace: generated/auth_workspaces/</text>
+
+  <text x="70" y="210" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#93c5fd">generated/auth_workspaces/JOURNEY.md</text>
+  <text x="70" y="238" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#93c5fd">generated/auth_workspaces/journey.agent.json</text>
+  <text x="70" y="266" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#93c5fd">generated/auth_workspaces/models.py</text>
+  <text x="70" y="294" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#93c5fd">generated/auth_workspaces/routes.py</text>
+  <text x="70" y="322" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#93c5fd">generated/auth_workspaces/test_journey.py</text>
+
+  <text x="38" y="372" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#34d399">$ pytest generated/auth_workspaces/test_journey.py</text>
+  <text x="38" y="414" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" fill="#e5e7eb">tests: full onboarding, duplicate signup rejected, login before verification fails</text>
+  <text x="38" y="456" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#22c55e">3 passed in 1.72s</text>
+
+  <rect x="38" y="498" width="1024" height="74" rx="10" fill="#0f766e" opacity="0.22"/>
+  <text x="62" y="532" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#ccfbf1">A .journey file becomes code, tests, docs, and an agent handoff.</text>
+  <text x="62" y="558" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#99f6e4">Edit the product story. Re-run Journey. Keep the implementation aligned.</text>
+</svg>

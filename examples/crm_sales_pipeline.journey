@@ -1,0 +1,116 @@
+journey "CRM Sales Pipeline" {
+  description "Capture accounts, contacts, deals, and qualification status for a small CRM"
+
+  entity Account {
+    name        string  unique
+    status      state(lead -> qualified -> customer -> churned)
+    created_at  timestamp  auto
+  }
+
+  entity Contact {
+    account     Account
+    name        string
+    email       string  unique
+    created_at  timestamp  auto
+  }
+
+  entity Deal {
+    account     Account
+    title       string
+    amount      string
+    stage       enum(discovery, proposal, won, lost)
+    created_at  timestamp  auto
+  }
+
+  step create_account {
+    actor anonymous
+    input {
+      name  string  required  min(2)
+    }
+    action {
+      account = create Account(name: input.name, status: lead)
+    }
+    output {
+      account_id  account.id
+      status      account.status
+    }
+  }
+
+  step add_contact {
+    requires create_account
+    actor anonymous
+    input {
+      account_id  id      required
+      name        string  required
+      email       string  required  format(email)
+    }
+    action {
+      account = find Account(id: input.account_id)
+      contact = create Contact(account: account, name: input.name, email: input.email)
+    }
+    output {
+      contact_id  contact.id
+      email       contact.email
+    }
+    errors {
+      account_not_found  "Account not found"  404
+    }
+  }
+
+  step open_deal {
+    requires add_contact
+    actor anonymous
+    input {
+      account_id  id      required
+      title       string  required
+      amount      string  required
+    }
+    action {
+      account = find Account(id: input.account_id)
+      deal = create Deal(account: account, title: input.title, amount: input.amount, stage: discovery)
+    }
+    output {
+      deal_id  deal.id
+      stage    deal.stage
+    }
+    errors {
+      account_not_found  "Account not found"  404
+    }
+  }
+
+  step qualify_account {
+    requires open_deal
+    actor anonymous
+    input {
+      account_id  id  required
+    }
+    action {
+      account = find Account(id: input.account_id)
+      account.status -> qualified
+    }
+    output {
+      account_id  account.id
+      status      account.status
+    }
+    errors {
+      account_not_found  "Account not found"  404
+    }
+  }
+
+  test "crm lead becomes qualified pipeline" {
+    do create_account(name: "Northstar Labs")
+      expect status 201
+      capture account_id
+
+    do add_contact(account_id: account_id, name: "Ava Chen", email: "ava@example.com")
+      expect status 201
+      capture contact_id
+
+    do open_deal(account_id: account_id, title: "Annual platform rollout", amount: "24000")
+      expect status 201
+      capture deal_id
+
+    do qualify_account(account_id: account_id)
+      expect status 200
+  }
+}

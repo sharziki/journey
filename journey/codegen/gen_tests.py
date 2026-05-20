@@ -1,6 +1,7 @@
 """Generate pytest test file from JourneySpec test blocks."""
 
 from ..parser.ast_nodes import JourneySpec, TestBlock, TestCommand
+from ..core.normalize import slugify
 
 
 def _step_class_name(name: str) -> str:
@@ -33,8 +34,7 @@ def _route_path(step_name: str) -> str:
 def generate_tests(spec: JourneySpec) -> str:
     """Generate test_journey.py from spec test blocks."""
 
-    slug = spec.name.lower().replace(" ", "_").replace("__", "_")
-    route_prefix = f"/journey/{slug.replace('_', '-')}"
+    route_prefix = f"/journey/{slugify(spec.name)}"
     needs_verification_token = any(
         cmd.step_name == "verify_email"
         for test_block in spec.tests

@@ -120,7 +120,9 @@ def normalize(spec: JourneySpec) -> NormalizedJourney:
 
 
 def slugify(value: str) -> str:
-    value = re.sub(r"(?<!^)(?=[A-Z])", "-", value).replace("_", "-").replace(" ", "-")
+    value = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1-\2", value)
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", value)
+    value = value.replace("_", "-").replace(" ", "-")
     value = re.sub(r"[^a-zA-Z0-9-]+", "", value).strip("-").lower()
     value = re.sub(r"-+", "-", value)
     return value or "journey"

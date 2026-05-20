@@ -93,6 +93,41 @@ def test_fastapi_adapter_writes_agent_artifacts(tmp_path):
     assert manifest["checklist"]
 
 
+def test_fastapi_adapter_uses_shared_slug_and_enum_literals(tmp_path):
+    spec = parse_string(
+        '''
+        journey "CRM Sales Pipeline" {
+          entity Deal {
+            stage enum(discovery, proposal)
+          }
+
+          step open_deal {
+            actor anonymous
+            action {
+              deal = create Deal(stage: discovery)
+            }
+            output {
+              deal_id deal.id
+            }
+          }
+
+          test "open deal" {
+            do open_deal()
+              expect status 201
+          }
+        }
+        '''
+    )
+
+    generate(spec, tmp_path)
+
+    routes = (tmp_path / "routes.py").read_text()
+    tests = (tmp_path / "test_journey.py").read_text()
+    assert 'prefix="/journey/crm-sales-pipeline"' in routes
+    assert '"/journey/crm-sales-pipeline/open-deal"' in tests
+    assert "stage=DealStage.discovery" in routes
+
+
 def test_adapter_raises_for_invalid_spec(tmp_path):
     spec = parse_string(
         '''

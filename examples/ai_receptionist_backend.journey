@@ -1,0 +1,93 @@
+journey "AI Receptionist Backend" {
+  description "Capture inbound calls, summarize intent, and book appointments"
+
+  entity Caller {
+    phone       string  unique
+    name        string
+    created_at  timestamp  auto
+  }
+
+  entity CallLead {
+    caller      Caller
+    summary     string
+    intent      enum(booking, question, escalation)
+    status      state(new -> scheduled -> closed)
+    created_at  timestamp  auto
+  }
+
+  entity Appointment {
+    lead        CallLead
+    starts_at   string
+    status      state(booked -> confirmed -> canceled)
+    created_at  timestamp  auto
+  }
+
+  step capture_call {
+    actor anonymous
+    input {
+      phone    string  required
+      name     string  required
+      summary  string  required  min(10)
+      intent   enum(booking, question, escalation)  default(booking)
+    }
+    action {
+      caller = create Caller(phone: input.phone, name: input.name)
+      lead = create CallLead(caller: caller, summary: input.summary, intent: input.intent, status: new)
+    }
+    output {
+      lead_id  lead.id
+      intent   lead.intent
+      status   lead.status
+    }
+  }
+
+  step book_appointment {
+    requires capture_call
+    actor anonymous
+    input {
+      lead_id    id      required
+      starts_at  string  required
+    }
+    action {
+      lead = find CallLead(id: input.lead_id, status: new)
+      appointment = create Appointment(lead: lead, starts_at: input.starts_at, status: booked)
+      lead.status -> scheduled
+    }
+    output {
+      appointment_id  appointment.id
+      lead_status     lead.status
+    }
+    errors {
+      invalid_lead  "Lead is missing or already handled"  400
+    }
+  }
+
+  step close_call {
+    requires capture_call
+    actor anonymous
+    input {
+      lead_id  id  required
+    }
+    action {
+      lead = find CallLead(id: input.lead_id, status: new)
+      lead.status -> closed
+    }
+    output {
+      lead_id  lead.id
+      status   lead.status
+    }
+    errors {
+      invalid_lead  "Lead is missing or already handled"  400
+    }
+  }
+
+  test "receptionist books a caller" {
+    do capture_call(phone: "555-0100", name: "Mia Rivera", summary: "Caller wants a Tuesday consultation", intent: booking)
+      expect status 201
+      capture lead_id
+
+    do book_appointment(lead_id: lead_id, starts_at: "2026-06-02T10:00:00")
+      expect status 201
+      capture appointment_id
+  }
+}

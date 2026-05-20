@@ -6,6 +6,7 @@ from ..parser.ast_nodes import (
     JourneySpec,
     Step,
 )
+from ..core.normalize import slugify
 
 
 def _snake(name: str) -> str:
@@ -89,7 +90,7 @@ def generate_routes(spec: JourneySpec) -> str:
         schema_imports.add(f"{_step_class_name(step.name)}Response")
     schema_imports.add("ErrorResponse")
 
-    slug = _snake(spec.name).replace(" ", "_").replace("__", "_")
+    slug = slugify(spec.name)
     tag = spec.name
 
     lines = [
@@ -122,7 +123,7 @@ def generate_routes(spec: JourneySpec) -> str:
         f"    {','.join(f'{chr(10)}    ' + s if i > 0 else s for i, s in enumerate(sorted(schema_imports)))}",
         ")",
         "",
-        f'router = APIRouter(prefix="/journey/{slug.replace("_", "-")}", tags=["{tag}"])',
+        f'router = APIRouter(prefix="/journey/{slug}", tags=["{tag}"])',
         "",
         "# --- In-memory sessions (pluggable via journey config) ---",
         "",
@@ -283,6 +284,9 @@ def _gen_create_action(action: Action, step: Step, spec: JourneySpec, variables:
                     break
             else:
                 kwargs.append(f"status={py_val}")
+        elif field and field.enum_type and not val.startswith("input."):
+            enum_cls = f"{entity_name}{field.name.title().replace('_', '')}"
+            kwargs.append(f"{key}={enum_cls}.{val}")
         else:
             kwargs.append(f"{key}={py_val}")
 

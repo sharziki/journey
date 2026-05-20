@@ -1,8 +1,8 @@
 <p align="center">
   <h1 align="center">Journey</h1>
   <p align="center">
-    <strong>The source-of-truth runtime for autonomous software engineering.</strong><br/>
-    Write the intent once. Agents generate, validate, repair, and evolve the implementation toward it.
+    <strong>Executable product stories for coding agents.</strong><br/>
+    Write the workflow once. Journey turns it into code, tests, docs, and an agent handoff.
   </p>
 </p>
 
@@ -14,85 +14,107 @@
 </p>
 
 <p align="center">
-  <a href="#how-journey-works">How it works</a> &bull;
-  <a href="#in-30-seconds">30 seconds</a> &bull;
-  <a href="#why-this-is-different">Why different</a> &bull;
-  <a href="#what-gets-generated">Generated output</a> &bull;
-  <a href="#journey-files">Journey Files</a> &bull;
-  <a href="#roadmap">Roadmap</a>
+  <a href="#2-minute-quickstart">Quickstart</a> &bull;
+  <a href="#before-journey--after-journey">Before/After</a> &bull;
+  <a href="#demo">Demo</a> &bull;
+  <a href="#examples">Examples</a> &bull;
+  <a href="#adapters-roadmap">Adapters</a> &bull;
+  <a href="#contributing">Contributing</a>
 </p>
 
 <p align="center">
   <img src="docs/assets/journey-hero.png" alt="Journey turns product stories into generated code, tests, and agent workflows." width="100%">
 </p>
 
----
+Journey is a small open-source language and CLI for describing backend product flows in `.journey` files.
 
-**From product story -> working system.**
+Today, Journey compiles structured journeys into a working FastAPI backend with SQLAlchemy models, Pydantic schemas, route handlers, generated pytest acceptance tests, and agent-readable handoff files.
 
-Journey turns a `.journey` file into durable project memory for agents: what the product is, how it should behave, what done means, what is broken, and what cleanup work still needs to happen.
+The bigger idea is simple: agents should not start from scattered prompts. They should read the project spine, build against it, test against it, and repair drift when the code no longer matches the story.
 
-The current v0.1 proves the first slice: a structured journey compiles into a working FastAPI backend with SQLAlchemy models, Pydantic schemas, routes, and pytest coverage.
+## 2 Minute Quickstart
 
-The bigger direction is more important:
-
-> Agents should not just generate code. They should keep moving a system toward its source of truth.
-
-## The Problem
-
-AI coding agents are powerful, but most of them are still prompt-driven.
-
-They repeatedly re-learn context, hallucinate contracts, patch symptoms, and lose the product intent across files, chats, tickets, docs, and tests.
-
-Journey gives agents a persistent spine:
-
-- What are we building?
-- What behavior matters?
-- What does done mean?
-- What should be tested?
-- What drift still needs repair?
-- Which agent should pick up the next pass?
-
-## How Journey Works
-
-<p align="center">
-  <img src="docs/assets/journey-flow.svg" alt="Human intent flows into a .journey file, normalized into an AST, used by agents and validators, then corrected through repair loops." width="900">
-</p>
-
-```text
-Human Intent
-      |
-      v
-  .journey file
-      |
-      v
- Normalized AST
-      |
-      v
- Agents + Validators
-      |
-      v
- Generated Systems
-      |
-      v
- Repair + Drift Correction
+```bash
+git clone https://github.com/sharziki/journey.git
+cd journey
+python -m pip install -e ".[dev]"
+journey agent examples/auth_workspaces.journey
 ```
 
-## Why This Is Different
+That command reads the journey, generates the FastAPI implementation, writes the agent handoff, and runs the generated acceptance tests.
 
-| Traditional AI Coding | Journey |
-|-----------------------|---------|
-| Prompt-driven | Intent-driven |
-| Stateless | Persistent context |
-| Generates snippets | Maintains systems |
-| Re-learns architecture | Reads the project spine |
-| Patches symptoms | Repairs against acceptance |
-| Treats tests as optional | Makes tests part of the story |
-| Ends after a response | Keeps cycling until the journey is done |
+You should see:
 
-## In 30 Seconds
+```text
+3 passed
+Journey accepted: generated implementation satisfies current acceptance tests.
+```
 
-Describe a system:
+Run the generated API:
+
+```bash
+journey run examples/auth_workspaces.journey
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+The generated project lives at:
+
+```text
+generated/auth_workspaces/
+├── JOURNEY.md
+├── journey.agent.json
+├── app.py
+├── database.py
+├── models.py
+├── routes.py
+├── schemas.py
+└── test_journey.py
+```
+
+## Before Journey / After Journey
+
+| Before Journey | After Journey |
+|----------------|---------------|
+| Product behavior lives in prompts, tickets, docs, and memory | Product behavior lives in one `.journey` source of truth |
+| Agents repeatedly ask for context | Agents read `JOURNEY.md` and `journey.agent.json` |
+| Backend routes, models, and tests drift apart | Code and acceptance tests are generated from the same workflow |
+| "Done" is subjective | `journey agent` and `journey test` prove the current contract |
+| New contributors must reverse-engineer intent | New contributors start with the journey file and examples |
+
+## Demo
+
+<p align="center">
+  <img src="docs/assets/journey-terminal-demo.svg" alt="Terminal demo showing Journey generating files and passing acceptance tests." width="100%">
+</p>
+
+The current demo is a screenshot-style terminal capture. A short GIF belongs here next: write a journey, run `journey agent`, open `/docs`, and show the generated acceptance test passing.
+
+## How It Works
+
+```text
+.journey file
+     |
+     v
+Parser + validator
+     |
+     v
+FastAPI codegen + agent manifest
+     |
+     v
+Generated pytest acceptance tests
+     |
+     v
+Agent repair loop
+```
+
+The `.journey` file is the portable contract. The generated code is ordinary app code that you can inspect, edit, test, deploy, or replace with another adapter later.
+
+## A Tiny Journey
 
 ```journey
 journey "Auth API" {
@@ -103,6 +125,7 @@ journey "Auth API" {
   }
 
   step signup {
+    actor anonymous
     input {
       email     string required format(email)
       password  string required min(8)
@@ -117,90 +140,97 @@ journey "Auth API" {
 }
 ```
 
-Generate and run it:
+Journey turns structured flows like this into:
+
+- SQLAlchemy models
+- Pydantic request/response schemas
+- FastAPI route handlers
+- state transition guards
+- password hashing for `hashed` fields
+- generated pytest scenarios
+- `JOURNEY.md` for humans and agents
+- `journey.agent.json` for tools and coding agents
+
+## Examples
+
+The repo includes working journeys you can run today:
+
+| Example | What it proves | Try it |
+|---------|----------------|--------|
+| `examples/auth_workspaces.journey` | SaaS signup, email verification, login, workspace creation, invitations | `journey agent examples/auth_workspaces.journey` |
+| `examples/crm_sales_pipeline.journey` | CRM accounts, contacts, deals, and qualification | `journey test examples/crm_sales_pipeline.journey --clean` |
+| `examples/ai_receptionist_backend.journey` | AI receptionist call capture and appointment booking | `journey test examples/ai_receptionist_backend.journey --clean` |
+| `examples/car_dealership_leads.journey` | Dealer lead capture, contact, and test-drive scheduling | `journey test examples/car_dealership_leads.journey --clean` |
+| `examples/journey_spine.journey` | Journey dogfooding itself as an agent-readable project spine | `journey agent examples/journey_spine.journey` |
+
+Run every shipped example:
 
 ```bash
-python -m pip install -e ".[dev]"
-journey execute examples/auth_workspaces.journey --autonomous
-journey run examples/auth_workspaces.journey
+for f in examples/*.journey; do
+  journey test "$f" --clean
+done
 ```
 
-Open the generated API docs at `http://127.0.0.1:8000/docs`.
+## Dogfooding Journey
 
-You now have:
+Journey uses `.journey` files as its own project spine.
 
-- FastAPI routes
-- SQLAlchemy models
-- Pydantic schemas
-- state transition guards
-- generated pytest acceptance tests
-- agent-facing `JOURNEY.md`
-- machine-readable `journey.agent.json`
-- OpenAPI docs through FastAPI
-
-## What Gets Generated
-
-```text
-generated/auth_workspaces/
-├── JOURNEY.md            # agent-readable implementation checklist
-├── journey.agent.json    # machine-readable project spine
-├── app.py                # FastAPI app entrypoint
-├── database.py           # SQLAlchemy engine/session setup
-├── models.py             # generated SQLAlchemy models
-├── routes.py             # generated route handlers
-├── schemas.py            # generated Pydantic schemas
-└── test_journey.py       # generated acceptance tests
-```
-
-The output is normal application code. You can inspect it, edit it, test it, deploy it, or replace it with another adapter.
-
-## Agent Mode
-
-Any AI coding terminal can use the same ritual:
+When an agent enters this repo, it should:
 
 ```bash
 find . -name "*.journey" -not -path "./generated/*"
-journey execute <file.journey> --autonomous
+journey agent examples/journey_spine.journey
+journey agent examples/auth_workspaces.journey
 ```
 
-`journey execute --autonomous` auto-detects a local coding agent runtime, currently Codex CLI when available, and runs the deliverable loop.
+Then it should read:
 
-Under the hood, each deliverable gets:
+```text
+generated/<journey>/JOURNEY.md
+generated/<journey>/journey.agent.json
+```
 
-- a fresh builder session
-- the current `JOURNEY.md`
-- the current `journey.agent.json`
-- a QA pass after the builder exits
-- advancement to the next deliverable only after QA passes
+That handoff tells the agent what the product is, what still needs to be built, and what acceptance tests must pass.
 
-If you only want to prepare the handoff without spawning an agent, use:
+## Agent Mode
+
+Use this when you want Journey to prepare the workspace and run acceptance without spawning another agent:
 
 ```bash
 journey agent <file.journey>
 ```
 
-That command:
-
-- validates the journey strictly
-- generates the implementation
-- writes `JOURNEY.md`
-- writes `journey.agent.json`
-- runs generated acceptance tests
-- prints the next loop an agent should follow
-
-The lower-level runner is also available:
+Use this when a local coding-agent runtime is configured and you want the deliverable loop:
 
 ```bash
-journey watch examples/auth_workspaces.journey
+journey execute <file.journey> --autonomous
 ```
 
-`watch` is useful for custom runtimes, but most users should start with `execute --autonomous`.
+`execute --autonomous` currently auto-detects Codex CLI when available. If you use another runtime, set `JOURNEY_AGENT_COMMAND` or use `journey watch`.
+
+```bash
+journey watch product.journey \
+  --agent-command "codex exec \"Work on: {item}. Read {handoff_md} and {handoff_json}.\""
+```
+
+## CLI Reference
+
+| Command | What it does |
+|---------|--------------|
+| `journey agent <file>` | Generate implementation, write handoff files, and run generated acceptance tests |
+| `journey execute <file> --autonomous` | Run the deliverable-by-deliverable builder/QA loop with a local agent runtime |
+| `journey watch <file>` | Lower-level watch loop for custom agent commands |
+| `journey compile <file>` | Generate a FastAPI project |
+| `journey test <file>` | Compile and run generated pytest scenarios |
+| `journey run <file>` | Compile and start the generated FastAPI app with uvicorn |
+| `journey inspect <file>` | Print the parsed journey AST |
+| `journey validate <file>` | Validate cross-references before generation |
+| `journey manifest <file>` | Generate `JOURNEY.md` and `journey.agent.json` |
+| `journey shape <file>` | Shape loose natural-language input into a handoff |
 
 ## Handwritten Journeys
 
-The intended `.journey` format is natural-language first.
-
-At the top level, a journey should be able to say:
+The long-term format is natural-language first:
 
 ```journey
 journey "Workspace Invite"
@@ -220,437 +250,129 @@ page "Invite Teammate":
   purpose:
     Let a workspace owner invite another person by email and role.
 
-  user sees:
-    - teammate email
-    - role selector
-    - send invite button
-    - invitation status
-
   acceptance:
     - owner can invite a teammate
     - non-owner cannot invite
     - duplicate invitation is rejected
 ```
 
-That format is the direction: high-level pages and flows first, then readable per-page specs, acceptance, cleanup, and optional `design.md` references. The v0.1 compiler still uses the structured backend syntax for generation.
-
-If the file is loose or unstructured, Journey shapes it first:
+The v0.1 compiler generates code from the structured backend syntax in `examples/*.journey`. Loose handwritten journeys can already be shaped into a readable handoff:
 
 ```bash
 journey shape idea.journey
-journey execute idea.journey --autonomous
 ```
-
-The shaped version is written to `.journey/handoff/<name>/shaped.journey` alongside `JOURNEY.md` and `journey.agent.json`. The goal is not robotic paperwork; the shaped file should stay readable and descriptive while giving agents enough structure to build, test, and clean up.
 
 See [docs/handwritten-journey-format.md](docs/handwritten-journey-format.md) and [docs/design.md](docs/design.md).
 
-## Use Cases
+## Adapters Roadmap
 
-- AI coding agents
-- autonomous software systems
-- backend generation
-- product specification
-- agent memory persistence
-- acceptance-driven development
-- self-healing infrastructure
-- multi-agent orchestration
-- drift detection and repair loops
+FastAPI is the first working adapter. The point of Journey is that the `.journey` file should outlive any one framework.
 
-## Current Examples
+Planned adapters:
 
-The repo includes two working journeys:
+| Adapter | Target |
+|---------|--------|
+| Next.js frontend generation | Pages, forms, route handlers, flow-aware UI states |
+| Supabase | Auth, Postgres schema, row-level security policies, edge functions |
+| Prisma | Schema generation and typed model access |
+| Django | Models, views, serializers, admin, and tests |
+| Node/Express | Routes, middleware, validation, and integration tests |
 
-| Journey | Purpose |
-|---------|---------|
-| `examples/auth_workspaces.journey` | Signup, login, workspace creation, invitations, states, and error cases |
-| `examples/journey_spine.journey` | A self-referential spec describing Journey as an agent-readable project spine |
+Other useful targets:
 
-Try the self-referential Journey spine:
-
-```bash
-journey inspect examples/journey_spine.journey
-journey test examples/journey_spine.journey --robustness strict --clean
-```
-
-For a publish/CI-grade pass:
-
-```bash
-python -m pytest
-journey validate examples/auth_workspaces.journey --strict
-journey validate examples/journey_spine.journey --strict
-journey test examples/auth_workspaces.journey --robustness strict --clean
-journey test examples/journey_spine.journey --robustness strict --clean
-python -m build
-python -m twine check dist/*
-```
-
-## Vision
-
-Journey is persistent semantic infrastructure for autonomous software agents.
-
-A `.journey` file is the spine of a project: product story, domain vocabulary, workflows, rules, acceptance cases, open questions, crew roles, and repair notes in one agent-readable document.
-
-Humans edit the journey. Agents read it as standing context and continuously move the codebase toward it.
-
-In the full version, Journey is not a one-shot generator. It is the file agents keep coming back to:
-
-```text
-read the journey
-choose the next missing piece
-build or edit the implementation
-run checks and acceptance tests
-send cleanup agents through the result
-write down gaps, repairs, and decisions
-repeat until the journey is done
-```
-
-## What It Does
-
-Today:
-
-- Parses today's structured journey syntax into a typed AST
-- Validates cross-references, required inputs, states, and test calls
-- Generates FastAPI apps from journey steps and entities
-- Emits SQLAlchemy models, Pydantic schemas, routes, database setup, and pytest tests
-- Produces agent-facing artifacts: `JOURNEY.md` and `journey.agent.json`
-- Runs generated acceptance tests against the compiled app
-
-Next:
-
-- Natural-language journey sections
-- Unstructured-to-shaped journey conversion
-- High-level `pages` and `flows`
-- Per-page handwritten specs
-- `design.md` references
-- Builder/tester/reviewer/cleanup agent roles
-- Watch mode
-- Repair ledgers
-- Multi-target adapters
-- Drift correction against the journey
-
-## Journey Files
-
-A `.journey` file is an executable product story. This example describes a backend workflow, which is the first compiler target:
-
-```journey
-journey "User Onboarding" {
-  description "Signup through workspace creation and team invitation"
-
-  entity User {
-    email       string  unique
-    password    string  hashed
-    status      state(pending -> active -> suspended)
-    created_at  timestamp  auto
-  }
-
-  entity Workspace {
-    name        string
-    owner       User
-    created_at  timestamp  auto
-  }
-
-  step signup {
-    actor anonymous
-    input {
-      email     string  required  format(email)
-      password  string  required  min(8)
-    }
-    action {
-      user = create User(email: input.email, password: input.password, status: pending)
-      send email(template: "verify_email", to: user.email)
-    }
-    output {
-      user_id   user.id
-      message   "Check your email to verify your account"
-    }
-    errors {
-      email_taken  "A user with this email already exists"  409
-    }
-  }
-
-  step login {
-    requires verify_email
-    actor anonymous
-    input {
-      email     string  required  format(email)
-      password  string  required
-    }
-    action {
-      user = find User(email: input.email)
-      verify password(input.password, user.password)
-      session = create_session(user)
-    }
-    output {
-      token       session.token
-      user_id     user.id
-    }
-    errors {
-      invalid_credentials  "Email or password is incorrect"  401
-      account_pending      "Please verify your email first"  403
-    }
-  }
-
-  test "full onboarding" {
-    do signup(email: "alice@example.com", password: "securepass123")
-      expect status 201
-      capture user_id
-
-    do login(email: "alice@example.com", password: "securepass123")
-      expect status 200
-      capture token
-  }
-}
-```
-
-This compiles to a working FastAPI app with SQLAlchemy models, Pydantic schemas, route handlers, state machine validation, password hashing, session management, and end-to-end tests.
-
-Journey can also describe the bigger agent loop itself. The current parser uses structured blocks, but the direction is natural-language-first:
-
-```journey
-journey "Journey Spine"
-
-mission:
-  Keep a software project moving from idea to verified implementation.
-  The journey is the source of truth. Agents may change code, tests, docs,
-  and generated artifacts, but every change should trace back to the journey.
-
-crew:
-  planner:
-    Find the next unfinished requirement and break it into concrete work.
-  builder:
-    Implement the missing behavior.
-  tester:
-    Convert acceptance notes into repeatable checks.
-  cleanup:
-    Inspect the repo after each pass, run the checks, find drift, and either
-    repair it or write a repair note back into the journey.
-
-done when:
-  The implementation, tests, docs, and generated agent manifest all agree
-  with the journey, and the cleanup crew reports no open gaps.
-```
-
-## Abstraction Model
-
-Journey should stay abstract at the core:
-
-```text
-          agents
-            |
-            v
-  ┌──────────────────┐
-  │   .journey file  │  human-readable intent
-  └──────────────────┘
-            |
-            v
-  ┌──────────────────┐
-  │   Journey AST    │  normalized product graph
-  └──────────────────┘
-      |       |       |
-      v       v       v
- generators validators agents
-      |       |       |
-      v       v       v
- backend   tests    repairs
- frontend  docs     plans
- infra     QA       briefings
-```
-
-The `.journey` file is the portable contract. Everything else is a plugin around it.
-
-| Layer | Role |
-|-------|------|
-| **Journey file** | Human-editable story, workflow, rules, acceptance, crew roles, and repair notes |
-| **Journey AST** | Normalized intermediate representation tools can consume |
-| **Adapters** | Convert the AST into code, docs, plans, tests, prompts, or runtime config |
-| **Validators** | Check whether an implementation satisfies the journey |
-| **Agents** | Read the journey, update the world, report gaps, repair drift, and keep cycling |
-
-The current repo includes one concrete compiler adapter:
-
-```
-.journey file
-     |
-     v
-  [ Parser ]  ─── Lexer + Recursive Descent ──> AST
-     |
-     v
-  [ Codegen ]  ─── AST Walkers ──> Python files
-     |
-     v
-  ┌─────────────────────────────────────┐
-  │  generated/                          │
-  │  ├── models.py      (SQLAlchemy)     │
-  │  ├── schemas.py     (Pydantic)       │
-  │  ├── routes.py      (FastAPI)        │
-  │  ├── database.py    (Engine/Session) │
-  │  ├── app.py         (Entrypoint)     │
-  │  └── test_journey.py (pytest)        │
-  └─────────────────────────────────────┘
-     |
-     v
-  [ Test Runner ]  ─── pytest ──> All scenarios pass ✓
-     |
-     v
-  [ Server ]  ─── uvicorn ──> API live at /docs
-```
-
-| Component | What it does |
-|-----------|-------------|
-| **Journey file** | Acts as the agent-readable source of intent and the running work ledger |
-| **Entities** | Compile to SQLAlchemy models with auto-generated IDs, timestamps, foreign keys, and state machine validation |
-| **State fields** | Generate enum classes with transition guards — invalid transitions raise at runtime |
-| **Steps** | Become FastAPI route handlers with typed request/response schemas |
-| **Actions** | `create` → INSERT + commit, `find` → SELECT + 404, `verify` → comparison + error, `transition` → state machine advancement |
-| **Errors** | Become HTTPException raises with correct status codes |
-| **Tests** | Compile to pytest classes that walk the full journey against an in-memory SQLite database |
-
-This FastAPI path proves the shape, but it should not define the ceiling. A good Journey adapter could target Django, Next.js, mobile flows, Terraform, a design system, a browser automation script, a support playbook, or another agent's memory format.
-
-## CLI Reference
-
-| Command | What it does |
-|---------|-------------|
-| `journey execute <file> --autonomous` | Auto-detect a coding agent runtime and execute the deliverable-by-deliverable builder/QA loop |
-| `journey agent <file>` | Prepare agent handoff files, generate implementation, and run acceptance tests |
-| `journey watch <file>` | Run the deliverable-by-deliverable builder/QA loop |
-| `journey compile <file>` | Parse and generate FastAPI project |
-| `journey test <file>` | Compile + run all test scenarios |
-| `journey run <file>` | Compile + start uvicorn with hot reload |
-| `journey inspect <file>` | Pretty-print the parsed AST |
-| `journey validate <file>` | Validate cross-references before generation |
-| `journey manifest <file>` | Generate `JOURNEY.md` and `journey.agent.json` for agents |
-
-Robustness profiles are designed to map cleanly to checkboxes in tools:
-
-```bash
-journey compile examples/auth_workspaces.journey --robustness strict --clean
-journey test examples/auth_workspaces.journey --strict
-```
-
-| Profile | Intended use |
-|---------|--------------|
-| `fast` | Quick parse/generate loop while drafting |
-| `standard` | Default open-source workflow: validate, generate app, generate agent manifest |
-| `strict` | Publish/CI mode: clean output, run generated tests, fail on warnings |
-
-Generated projects include:
-
-- `JOURNEY.md` — an agent-readable implementation checklist
-- `journey.agent.json` — structured entities, steps, tests, and robustness settings
-- `test_journey.py` — acceptance tests generated from the journey
+- OpenAPI export
+- QA checklists
+- seed data
+- browser automation scripts
+- support and operations playbooks
+- agent task plans
 
 ## Project Structure
 
-```
+```text
 journey/
-├── parser/
-│   ├── lexer.py        # Tokenizer — keywords, strings, operators
-│   ├── parser.py       # Recursive descent parser → AST
-│   └── ast_nodes.py    # Typed AST dataclasses
-├── codegen/
-│   ├── gen_models.py   # Entities → SQLAlchemy + state machines
-│   ├── gen_schemas.py  # Steps → Pydantic request/response
-│   ├── gen_routes.py   # Steps → FastAPI handlers
-│   ├── gen_tests.py    # Test blocks → pytest harness
-│   ├── gen_database.py # DB engine + session setup
-│   └── gen_app.py      # FastAPI app entrypoint
-├── adapters/
-│   ├── fastapi.py      # Adapter wrapper + agent manifest output
-│   └── markdown.py     # Agent-readable markdown summaries
-├── core/
-│   ├── config.py       # Robustness profiles
-│   ├── normalize.py    # Stable normalized graph for agents
-│   └── validation.py   # Framework-neutral semantic checks
-└── cli/
-    └── main.py         # compile, test, run, inspect commands
+├── parser/      # lexer, recursive descent parser, AST dataclasses
+├── core/        # validation, normalization, config
+├── codegen/     # FastAPI, SQLAlchemy, Pydantic, pytest generation
+├── adapters/    # adapter wrappers and markdown handoff output
+└── cli/         # journey command line interface
 ```
-
-## Agent Crew
-
-| Role | Responsibility |
-|------|----------------|
-| **Planner** | Reads the journey and chooses the next unfinished slice |
-| **Builder** | Edits code, generated artifacts, docs, or tests |
-| **Tester** | Turns acceptance notes into repeatable checks |
-| **Reviewer** | Compares implementation behavior against the journey |
-| **Cleanup** | Finds drift, removes stale work, records repair notes, and sends the loop around again |
-
-## Journey is right for you if
-
-- You're building AI agents that generate full-stack apps
-- You want a portable format for product intent
-- You want to build software by editing stories and workflows
-- You want backend contracts validated before frontend work starts
-- You want agents to share context instead of repeating long prompts
-- You want state machines, permissions, errors, and tests captured in one place
-- You want a path toward self-healing implementation loops
-
-## What Journey is NOT
-
-| It's not... | Because... |
-|-------------|-----------|
-| A no-code platform | You get real code you can read, extend, and deploy |
-| A magic app generator | The journey is source of truth; agents and compilers still verify the work |
-| A framework | The first output target is standard FastAPI — no runtime dependency on Journey |
-| An ORM | It generates SQLAlchemy code. You own the output. |
-| A testing framework | It generates pytest tests. Standard tooling, no lock-in. |
-| Only a backend tool | Backend workflows are the first target, not the ceiling. |
 
 ## Status
 
-This is v0.1 — a working proof of concept for the first compiler target. The parser, structured journey syntax, backend codegen, and generated test harness work for the included auth/workspaces journey and the self-describing Journey spine example.
+Journey is v0.1 alpha.
 
-The big vision is active-agent development: edit `.journey` files in natural language, have agents normalize the story, generate or update implementation, run acceptance tests, send cleanup through the repo, report gaps, and repair drift until done.
+Working today:
+
+- structured `.journey` syntax
+- parser and semantic validation
+- FastAPI backend generation
+- SQLAlchemy model generation
+- Pydantic schema generation
+- generated pytest acceptance tests
+- agent-facing `JOURNEY.md`
+- machine-readable `journey.agent.json`
+- `agent`, `execute`, `watch`, `shape`, `compile`, `test`, `run`, `inspect`, `validate`, and `manifest` commands
+
+Still early:
+
+- natural-language journeys are a direction, not the main compiler target yet
+- FastAPI is the only production codegen adapter today
+- autonomous execution depends on a configured local agent runtime
+- the codegen needs more examples to force generalization
 
 ## Roadmap
 
-The roadmap is intentionally open because Journey is meant to become the work queue for agents. Checked items are working in v0.1. Open items are the next jobs the agent crew should be able to pick up, implement, verify, and mark complete from the journey itself.
-
-- [x] Structured v0.1 syntax — entities, steps, state machines, tests
-- [x] Parser — lexer + recursive descent → typed AST
-- [x] Code generation — models, schemas, routes, tests
-- [x] CLI — compile, test, run, inspect
-- [x] End-to-end validation — auth+workspaces journey passes all tests
-- [x] Self-referential Journey spine example — Journey described as a journey
-- [ ] Natural-language journey sections — mission, story, principles, crew, done-when, open questions, repair notes
-- [ ] Agent crew manifest — planner, builder, tester, reviewer, cleanup roles encoded for agents
-- [ ] Watch mode — agents watch `.journey`, choose the next incomplete item, regenerate, test, and repeat
-- [ ] Cleanup mode — inspect generated code, docs, tests, and manifests for drift from the journey
-- [ ] Repair ledger — every failed check creates a traceable note back in the journey
-- [ ] Generic codegen — eliminate hardcoded patterns, make it work for any journey
-- [ ] Repair mode — diagnose failing acceptance cases and update code, tests, or journey with a trace
-- [ ] Multi-target outputs — backend, frontend flow hints, docs, QA checklists, OpenAPI
-- [ ] Enriched structured anchors — explicit routes, error conditions, hooks, auth config when natural language needs precision
-- [ ] Event system — side effects (email, webhooks) as emittable events
-- [ ] Second validation spec — e-commerce journey compiles with zero new special cases
-- [ ] Plugin system — custom action handlers, auth strategies, DB backends
-- [ ] Universal handoff format — drop a `.journey` into any compatible agent and get project context
+- [x] Structured v0.1 syntax: entities, steps, state machines, tests
+- [x] Parser: lexer + recursive descent to typed AST
+- [x] FastAPI code generation: models, schemas, routes, tests
+- [x] Agent handoff files: `JOURNEY.md` and `journey.agent.json`
+- [x] SaaS auth/workspaces example
+- [x] CRM example
+- [x] AI receptionist backend example
+- [x] Car dealership lead system example
+- [x] Journey dogfoods itself with `examples/journey_spine.journey`
+- [ ] GIF demo for README
+- [ ] Natural-language journey sections as first-class compiler input
+- [ ] Generic action/event system for emails, webhooks, tasks, and side effects
+- [ ] Repair ledger for failed checks and drift
+- [ ] OpenAPI export
+- [ ] Next.js frontend generation
+- [ ] Supabase adapter
+- [ ] Prisma adapter
+- [ ] Django adapter
+- [ ] Node/Express adapter
 
 ## Contributing
 
-This is early. If the idea resonates, open an issue or PR. The most impactful contributions right now:
+The best contributions right now are examples that make Journey more general.
 
-1. **Write a new `.journey` spec** that breaks the codegen — this reveals where generalization is needed
-2. **Propose natural-language sections** for intent, vocabulary, principles, crew roles, open questions, and repair notes
-3. **Improve the codegen** to handle more patterns generically
-4. **Design agent loops** that watch a journey, implement missing behavior, verify, clean up, and self-heal
+Good first PRs:
+
+1. Add a `.journey` file for a real workflow.
+2. Run `journey test examples/your_file.journey --clean`.
+3. If it fails, improve the parser, validator, or codegen without deleting acceptance coverage.
+4. Add the example to this README.
+
+Useful example areas:
+
+- SaaS onboarding and billing
+- CRM workflows
+- receptionist and appointment systems
+- dealership lead routing
+- marketplace orders
+- clinic intake
+- field service scheduling
+
+## Release Checks
+
+```bash
+python -m pytest
+for f in examples/*.journey; do journey test "$f" --clean; done
+python -m build
+python -m twine check dist/*
+```
 
 ## License
 
 MIT
-
-## Publishing
-
-Build artifacts are standard Python distributions:
-
-```bash
-python -m pip install -e ".[dev]"
-rm -rf dist build *.egg-info
-python -m build
-python -m twine check dist/*
-python -m twine upload dist/*
-```
-
-The generated `journey.agent.json` file is the intended machine-readable handoff for coding agents. The generated `JOURNEY.md` file is the intended human/agent checklist for implementation progress.

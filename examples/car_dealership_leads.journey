@@ -1,0 +1,88 @@
+journey "Car Dealership Lead System" {
+  description "Capture vehicle interest, schedule test drives, and qualify dealership leads"
+
+  entity VehicleLead {
+    name        string
+    email       string  unique
+    vehicle     string
+    status      state(new -> contacted -> test_drive -> closed)
+    created_at  timestamp  auto
+  }
+
+  entity TestDrive {
+    lead        VehicleLead
+    vehicle     string
+    starts_at   string
+    status      state(scheduled -> completed -> canceled)
+    created_at  timestamp  auto
+  }
+
+  step capture_lead {
+    actor anonymous
+    input {
+      name     string  required
+      email    string  required  format(email)
+      vehicle  string  required
+    }
+    action {
+      lead = create VehicleLead(name: input.name, email: input.email, vehicle: input.vehicle, status: new)
+    }
+    output {
+      lead_id  lead.id
+      status   lead.status
+    }
+  }
+
+  step contact_lead {
+    requires capture_lead
+    actor anonymous
+    input {
+      lead_id  id  required
+    }
+    action {
+      lead = find VehicleLead(id: input.lead_id, status: new)
+      lead.status -> contacted
+    }
+    output {
+      lead_id  lead.id
+      status   lead.status
+    }
+    errors {
+      invalid_lead  "Lead is missing or no longer new"  400
+    }
+  }
+
+  step schedule_test_drive {
+    requires contact_lead
+    actor anonymous
+    input {
+      lead_id    id      required
+      starts_at  string  required
+    }
+    action {
+      lead = find VehicleLead(id: input.lead_id, status: contacted)
+      test_drive = create TestDrive(lead: lead, vehicle: lead.vehicle, starts_at: input.starts_at, status: scheduled)
+      lead.status -> test_drive
+    }
+    output {
+      test_drive_id  test_drive.id
+      lead_status    lead.status
+    }
+    errors {
+      invalid_lead  "Lead must be contacted before scheduling"  400
+    }
+  }
+
+  test "internet lead schedules a test drive" {
+    do capture_lead(name: "Jordan Lee", email: "jordan@example.com", vehicle: "2025 F-150 Lightning")
+      expect status 201
+      capture lead_id
+
+    do contact_lead(lead_id: lead_id)
+      expect status 200
+
+    do schedule_test_drive(lead_id: lead_id, starts_at: "2026-06-05T14:30:00")
+      expect status 201
+      capture test_drive_id
+  }
+}
