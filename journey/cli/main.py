@@ -299,6 +299,10 @@ def cmd_watch(args):
 
 def cmd_execute(args):
     """Execute a journey, optionally with an autonomous coding agent loop."""
+    if not _is_structured_journey(args.file):
+        cmd_execute_natural(args)
+        return
+
     if not args.autonomous:
         agent_args = argparse.Namespace(**vars(args))
         agent_args.no_test = False
@@ -317,6 +321,95 @@ def cmd_execute(args):
     watch_args.once = args.once
     watch_args.max_cycles = args.max_cycles
     cmd_watch(watch_args)
+
+
+def cmd_execute_natural(args):
+    """Shape and execute a handwritten natural-language journey."""
+    from ..core.natural import shape_unstructured_journey, write_natural_handoff
+
+    source = Path(args.file)
+    journey = shape_unstructured_journey(source.read_text(), filename=str(source))
+    output = args.output or str(Path(".journey") / "handoff" / journey.slug)
+    shaped_path, markdown_path, manifest_path = write_natural_handoff(journey, output)
+    checklist = journey.checklist()
+    state_path = _watch_state_path(args.state_dir, journey.slug)
+    state = _load_watch_state(state_path)
+    completed = set(state.get("completed", []))
+
+    print("Shaped handwritten journey:")
+    print(f"  {shaped_path}")
+    print("Agent handoff:")
+    print(f"  {markdown_path}")
+    print(f"  {manifest_path}")
+
+    if not args.autonomous:
+        print("\nRun autonomously with:")
+        print(f"  journey execute {args.file} --autonomous")
+        return
+
+    command = _autonomous_agent_command()
+    if command is None:
+        print("No supported autonomous coding agent runtime found.")
+        print("Install Codex CLI or set JOURNEY_AGENT_COMMAND, then rerun:")
+        print(f"  journey execute {args.file} --autonomous")
+        sys.exit(2)
+
+    cycles = 0
+    while cycles < args.max_cycles:
+        current_index = _next_incomplete_index(checklist, completed)
+        _print_watch_dashboard(journey.name, checklist, completed, current_index)
+        if current_index is None:
+            print("\nJourney complete: all deliverables are marked complete.")
+            return
+
+        item = checklist[current_index]
+        print(f"\nBuilder session target [{current_index + 1}/{len(checklist)}]: {item}")
+        builder_args = argparse.Namespace(agent_command=command)
+        builder_code = _run_builder_session(
+            builder_args,
+            str(source),
+            output,
+            item,
+            current_index,
+            len(checklist),
+        )
+        if builder_code != 0:
+            print("\nBuilder session failed. Fix that before QA can advance the journey.")
+            sys.exit(builder_code)
+
+        print("\nQA agent: running available project checks...")
+        qa_code = _run_project_qa()
+        if qa_code != 0:
+            print("\nQA failed. Keeping the current deliverable active for repair.")
+            sys.exit(qa_code)
+
+        completed.add(item)
+        _save_watch_state(state_path, {"journey": journey.name, "slug": journey.slug, "completed": sorted(completed)})
+        print(f"\nQA passed. Deliverable accepted: {item}")
+        print("Triggering next deliverable...")
+        cycles += 1
+        if args.once:
+            break
+
+    next_index = _next_incomplete_index(checklist, completed)
+    _print_watch_dashboard(journey.name, checklist, completed, next_index)
+    if next_index is None:
+        print("\nJourney complete: all deliverables are marked complete.")
+    else:
+        print("\nPaused. Re-run the same execute command to continue.")
+
+
+def cmd_shape(args):
+    """Convert loose handwritten text into a readable Journey brief."""
+    from ..core.natural import shape_unstructured_journey, write_natural_handoff
+
+    source = Path(args.file)
+    journey = shape_unstructured_journey(source.read_text(), filename=str(source))
+    output = args.output or str(Path(".journey") / "handoff" / journey.slug)
+    shaped_path, markdown_path, manifest_path = write_natural_handoff(journey, output)
+    print(shaped_path)
+    print(markdown_path)
+    print(manifest_path)
 
 
 def _default_output_dir(source: str) -> str:
@@ -352,6 +445,16 @@ def _run_agent_qa(output: str) -> int:
         cwd=str(output_path.parent),
     )
     return result.returncode
+
+
+def _run_project_qa() -> int:
+    if os.environ.get("JOURNEY_SKIP_PROJECT_QA") == "1":
+        print("Project QA skipped by JOURNEY_SKIP_PROJECT_QA=1.")
+        return 0
+    if Path("tests").exists():
+        return subprocess.run([sys.executable, "-m", "pytest", "-q"]).returncode
+    print("No project test suite found; QA recorded as handoff-only for this pass.")
+    return 0
 
 
 def _watch_state_path(state_dir: str, slug: str) -> Path:
@@ -415,6 +518,16 @@ def _autonomous_agent_command() -> str | None:
             'then stop so Journey can run QA."'
         )
     return None
+
+
+def _is_structured_journey(path: str) -> bool:
+    try:
+        from ..parser import parse_file
+
+        parse_file(path)
+        return True
+    except Exception:
+        return False
 
 
 def _print_watch_dashboard(journey_name: str, checklist: list[str], completed: set[str], current_index: int | None):
@@ -531,6 +644,11 @@ def main():
     p_execute.add_argument("--max-cycles", type=int, default=999, help="Maximum deliverables to advance in one autonomous run")
     _add_robustness_args(p_execute)
 
+    # shape
+    p_shape = sub.add_parser("shape", help="Shape unstructured writing into a readable Journey handoff")
+    p_shape.add_argument("file", help="Path to handwritten .journey or text file")
+    p_shape.add_argument("-o", "--output", help="Output directory")
+
     args = parser.parse_args()
 
     if args.command == "compile":
@@ -551,6 +669,8 @@ def main():
         cmd_watch(args)
     elif args.command == "execute":
         cmd_execute(args)
+    elif args.command == "shape":
+        cmd_shape(args)
     else:
         parser.print_help()
 

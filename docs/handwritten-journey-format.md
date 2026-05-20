@@ -165,11 +165,39 @@ The runner:
 - marks the deliverable complete only after QA passes
 - triggers the next deliverable on the next loop
 
+## Loose Input
+
+Agents and humans should not need to write perfect syntax first.
+
+This is valid source material:
+
+```text
+Build a workout tracker.
+
+Pages:
+- Landing
+- Dashboard
+- Add workout
+
+The dashboard should show today's workout and an empty state.
+Users can add a workout with notes.
+Design is in ./design.md.
+```
+
+Journey can shape that into a proper handwritten journey:
+
+```bash
+journey shape workout.journey
+journey execute workout.journey --autonomous
+```
+
+The shaped output should stay readable and descriptive. It should not become robotic framework config.
+
 ## Current Implementation Note
 
-The v0.1 compiler does not yet parse this full natural-language format.
+The v0.1 compiler does not yet compile this full natural-language format into application code.
 
-Today, use structured journey blocks for code generation and use the handwritten format as the product target. The roadmap item is to let both live together:
+Today, structured journey blocks generate backend code. Loose handwritten journeys are shaped into agent handoffs and can run through the autonomous builder/QA loop. The roadmap item is to let both live together for generation:
 
 ```journey
 journey "Product"

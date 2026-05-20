@@ -6,6 +6,8 @@ When an AI coding agent or coding terminal enters this repo, it should treat any
 
 If a journey cites a design file, such as `design: ./design.md`, read that design file before implementing product-facing behavior.
 
+If a `.journey` is loose, handwritten, or not valid structured syntax, run `journey execute <file.journey> --autonomous` anyway. Journey will shape it into a readable handoff first.
+
 ## Default Loop
 
 1. Find journey files:
@@ -69,6 +71,12 @@ The intended behavior for agents is to keep looping on those artifacts until the
 - triggers the next deliverable
 
 `journey execute <file.journey> --autonomous` is the user-facing autonomous command. It auto-detects Codex CLI when available and uses it as the builder runtime. If a different runtime is needed, set `JOURNEY_AGENT_COMMAND`.
+
+For unstructured journeys, `execute` writes:
+
+- `.journey/handoff/<name>/shaped.journey`
+- `.journey/handoff/<name>/JOURNEY.md`
+- `.journey/handoff/<name>/journey.agent.json`
 
 For the handwritten natural-language journey direction, read `docs/handwritten-journey-format.md`.
 

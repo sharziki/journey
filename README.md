@@ -234,6 +234,15 @@ page "Invite Teammate":
 
 That format is the direction: high-level pages and flows first, then readable per-page specs, acceptance, cleanup, and optional `design.md` references. The v0.1 compiler still uses the structured backend syntax for generation.
 
+If the file is loose or unstructured, Journey shapes it first:
+
+```bash
+journey shape idea.journey
+journey execute idea.journey --autonomous
+```
+
+The shaped version is written to `.journey/handoff/<name>/shaped.journey` alongside `JOURNEY.md` and `journey.agent.json`. The goal is not robotic paperwork; the shaped file should stay readable and descriptive while giving agents enough structure to build, test, and clean up.
+
 See [docs/handwritten-journey-format.md](docs/handwritten-journey-format.md) and [docs/design.md](docs/design.md).
 
 ## Use Cases
@@ -310,6 +319,7 @@ Today:
 Next:
 
 - Natural-language journey sections
+- Unstructured-to-shaped journey conversion
 - High-level `pages` and `flows`
 - Per-page handwritten specs
 - `design.md` references
