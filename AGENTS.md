@@ -17,13 +17,13 @@ If a journey cites a design file, such as `design: ./design.md`, read that desig
 2. Prepare the agent handoff and run acceptance:
 
    ```bash
-   journey agent examples/auth_workspaces.journey
+   journey execute examples/auth_workspaces.journey --autonomous
    ```
 
    If the package is not installed as a command, use:
 
    ```bash
-   python -m journey agent examples/auth_workspaces.journey
+   python -m journey execute examples/auth_workspaces.journey --autonomous
    ```
 
 3. Read the generated handoff files:
@@ -39,16 +39,10 @@ If a journey cites a design file, such as `design: ./design.md`, read that desig
    journey agent <file.journey>
    ```
 
-6. For autonomous deliverable-by-deliverable work, run:
+6. To prepare the handoff without spawning an autonomous coding agent, run:
 
    ```bash
-   journey watch <file.journey>
-   ```
-
-   To spawn a coding agent for each deliverable, pass a command template:
-
-   ```bash
-   journey watch <file.journey> --agent-command "codex exec \"Work on: {item}. Read {handoff_md} and {handoff_json}.\""
+   journey agent <file.journey>
    ```
 
 7. If implementation and journey disagree, preserve the journey as the source of truth unless the user explicitly asks to change the product intent.
@@ -73,6 +67,8 @@ The intended behavior for agents is to keep looping on those artifacts until the
 - runs QA after the builder session
 - marks the deliverable complete only after QA passes
 - triggers the next deliverable
+
+`journey execute <file.journey> --autonomous` is the user-facing autonomous command. It auto-detects Codex CLI when available and uses it as the builder runtime. If a different runtime is needed, set `JOURNEY_AGENT_COMMAND`.
 
 For the handwritten natural-language journey direction, read `docs/handwritten-journey-format.md`.
 

@@ -143,10 +143,12 @@ When an agent sees a handwritten journey:
 Use the runner when you want the journey to advance deliverable by deliverable:
 
 ```bash
-journey watch product.journey
+journey execute product.journey --autonomous
 ```
 
-With a coding agent command:
+That command auto-detects a local coding agent runtime, currently Codex CLI when available.
+
+For custom runtimes, use the lower-level watch command:
 
 ```bash
 journey watch product.journey \

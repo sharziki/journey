@@ -121,7 +121,7 @@ Generate and run it:
 
 ```bash
 python -m pip install -e ".[dev]"
-journey agent examples/auth_workspaces.journey
+journey execute examples/auth_workspaces.journey --autonomous
 journey run examples/auth_workspaces.journey
 ```
 
@@ -160,10 +160,26 @@ Any AI coding terminal can use the same ritual:
 
 ```bash
 find . -name "*.journey" -not -path "./generated/*"
+journey execute <file.journey> --autonomous
+```
+
+`journey execute --autonomous` auto-detects a local coding agent runtime, currently Codex CLI when available, and runs the deliverable loop.
+
+Under the hood, each deliverable gets:
+
+- a fresh builder session
+- the current `JOURNEY.md`
+- the current `journey.agent.json`
+- a QA pass after the builder exits
+- advancement to the next deliverable only after QA passes
+
+If you only want to prepare the handoff without spawning an agent, use:
+
+```bash
 journey agent <file.journey>
 ```
 
-`journey agent` prepares the handoff an agent needs:
+That command:
 
 - validates the journey strictly
 - generates the implementation
@@ -172,24 +188,13 @@ journey agent <file.journey>
 - runs generated acceptance tests
 - prints the next loop an agent should follow
 
-This does not spawn background agents yet. It makes the repo self-onboarding for agents that understand shell commands and instruction files like `AGENTS.md`.
-
-For an autonomous deliverable loop, use watch mode:
+The lower-level runner is also available:
 
 ```bash
 journey watch examples/auth_workspaces.journey
 ```
 
-It shows the active deliverable, prepares the handoff, runs QA, and advances only after tests pass.
-
-To spawn a fresh Codex session for each deliverable, provide a command template:
-
-```bash
-journey watch examples/auth_workspaces.journey \
-  --agent-command "codex exec \"Work on: {item}. Read {handoff_md} and {handoff_json}.\""
-```
-
-Available template values: `{journey_file}`, `{output_dir}`, `{item}`, `{index}`, `{total}`, `{handoff_md}`, `{handoff_json}`.
+`watch` is useful for custom runtimes, but most users should start with `execute --autonomous`.
 
 ## Handwritten Journeys
 
@@ -497,6 +502,7 @@ This FastAPI path proves the shape, but it should not define the ceiling. A good
 
 | Command | What it does |
 |---------|-------------|
+| `journey execute <file> --autonomous` | Auto-detect a coding agent runtime and execute the deliverable-by-deliverable builder/QA loop |
 | `journey agent <file>` | Prepare agent handoff files, generate implementation, and run acceptance tests |
 | `journey watch <file>` | Run the deliverable-by-deliverable builder/QA loop |
 | `journey compile <file>` | Parse and generate FastAPI project |

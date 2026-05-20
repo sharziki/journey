@@ -4,7 +4,7 @@ from argparse import Namespace
 import pytest
 
 from journey.adapters.fastapi import generate
-from journey.cli.main import cmd_agent, cmd_watch
+from journey.cli.main import _autonomous_agent_command, cmd_agent, cmd_watch
 from journey.core.config import RobustnessConfig
 from journey.core.normalize import normalize
 from journey.core.validation import JourneyValidationError, validate
@@ -148,3 +148,20 @@ def test_watch_command_advances_one_deliverable(tmp_path):
 
     state = json.loads((state_dir / "journey-spine.json").read_text())
     assert state["completed"] == ["Parse journey 'Journey Spine'"]
+
+
+def test_autonomous_agent_command_prefers_environment(monkeypatch):
+    monkeypatch.setenv("JOURNEY_AGENT_COMMAND", "custom-agent {item}")
+
+    assert _autonomous_agent_command() == "custom-agent {item}"
+
+
+def test_autonomous_agent_command_detects_codex(monkeypatch):
+    monkeypatch.delenv("JOURNEY_AGENT_COMMAND", raising=False)
+    monkeypatch.setattr("journey.cli.main.shutil.which", lambda name: "/usr/bin/codex" if name == "codex" else None)
+
+    command = _autonomous_agent_command()
+
+    assert command is not None
+    assert command.startswith("codex exec -C")
+    assert "{item}" in command

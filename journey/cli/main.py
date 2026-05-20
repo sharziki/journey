@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -296,6 +297,28 @@ def cmd_watch(args):
         print("\nPaused. Re-run the same watch command to continue.")
 
 
+def cmd_execute(args):
+    """Execute a journey, optionally with an autonomous coding agent loop."""
+    if not args.autonomous:
+        agent_args = argparse.Namespace(**vars(args))
+        agent_args.no_test = False
+        cmd_agent(agent_args)
+        return
+
+    command = _autonomous_agent_command()
+    if command is None:
+        print("No supported autonomous coding agent runtime found.")
+        print("Install Codex CLI or set JOURNEY_AGENT_COMMAND, then rerun:")
+        print(f"  journey execute {args.file} --autonomous")
+        sys.exit(2)
+
+    watch_args = argparse.Namespace(**vars(args))
+    watch_args.agent_command = command
+    watch_args.once = args.once
+    watch_args.max_cycles = args.max_cycles
+    cmd_watch(watch_args)
+
+
 def _default_output_dir(source: str) -> str:
     """Derive output directory from source file."""
     name = Path(source).stem
@@ -371,12 +394,27 @@ def _run_builder_session(args, source: str, output: str, item: str, index: int, 
         "total": str(total),
         "handoff_md": str(Path(output) / "JOURNEY.md"),
         "handoff_json": str(Path(output) / "journey.agent.json"),
+        "cwd": os.getcwd(),
     }
     formatted = command.format(**values)
     print("\nSpawning builder session:")
     print(f"  {formatted}")
     result = subprocess.run(shlex.split(formatted))
     return result.returncode
+
+
+def _autonomous_agent_command() -> str | None:
+    configured = os.environ.get("JOURNEY_AGENT_COMMAND")
+    if configured:
+        return configured
+    if shutil.which("codex"):
+        return (
+            'codex exec -C "{cwd}" -s workspace-write '
+            '"You are a Journey builder agent. Work only on deliverable {index}/{total}: {item}. '
+            'Read {handoff_md} and {handoff_json}. Make the smallest correct changes needed, '
+            'then stop so Journey can run QA."'
+        )
+    return None
 
 
 def _print_watch_dashboard(journey_name: str, checklist: list[str], completed: set[str], current_index: int | None):
@@ -483,6 +521,16 @@ def main():
     p_watch.add_argument("--max-cycles", type=int, default=1, help="Maximum deliverables to advance in one run")
     _add_robustness_args(p_watch)
 
+    # execute
+    p_execute = sub.add_parser("execute", help="Execute a journey through the agent/QA loop")
+    p_execute.add_argument("file", help="Path to .journey file")
+    p_execute.add_argument("-o", "--output", help="Output directory")
+    p_execute.add_argument("--autonomous", action="store_true", help="Auto-detect a coding agent runtime and run deliverables autonomously")
+    p_execute.add_argument("--state-dir", default=".journey/state", help="Directory for journey execution state")
+    p_execute.add_argument("--once", action="store_true", help="Run one deliverable and stop")
+    p_execute.add_argument("--max-cycles", type=int, default=999, help="Maximum deliverables to advance in one autonomous run")
+    _add_robustness_args(p_execute)
+
     args = parser.parse_args()
 
     if args.command == "compile":
@@ -501,6 +549,8 @@ def main():
         cmd_agent(args)
     elif args.command == "watch":
         cmd_watch(args)
+    elif args.command == "execute":
+        cmd_execute(args)
     else:
         parser.print_help()
 
