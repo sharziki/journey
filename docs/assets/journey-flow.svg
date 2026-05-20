@@ -1,0 +1,64 @@
+<svg width="1100" height="420" viewBox="0 0 1100 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Journey agent workflow</title>
+  <desc id="desc">Human intent flows into a .journey file, normalized into an AST, used by agents and validators to generate systems, then repaired through drift correction.</desc>
+  <rect width="1100" height="420" rx="28" fill="#0B1220"/>
+  <rect x="20" y="20" width="1060" height="380" rx="22" fill="url(#panel)" stroke="#24324A"/>
+  <path d="M103 210H997" stroke="#31415D" stroke-width="3" stroke-linecap="round"/>
+  <path d="M265 210H327" stroke="#14B8A6" stroke-width="5" stroke-linecap="round"/>
+  <path d="M458 210H520" stroke="#60A5FA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M650 210H712" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+  <path d="M843 210H905" stroke="#14B8A6" stroke-width="5" stroke-linecap="round"/>
+  <g filter="url(#glow)">
+    <rect x="64" y="118" width="200" height="184" rx="18" fill="#111A2D" stroke="#2B3B56"/>
+    <text x="164" y="164" fill="#E6EEF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Human Intent</text>
+    <text x="164" y="199" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" text-anchor="middle">product story</text>
+    <text x="164" y="224" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" text-anchor="middle">rules</text>
+    <text x="164" y="249" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" text-anchor="middle">done criteria</text>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="321" y="92" width="178" height="236" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <rect x="353" y="126" width="114" height="12" rx="6" fill="#14B8A6"/>
+    <rect x="353" y="158" width="86" height="8" rx="4" fill="#64748B"/>
+    <rect x="353" y="181" width="116" height="8" rx="4" fill="#94A3B8"/>
+    <rect x="353" y="204" width="98" height="8" rx="4" fill="#94A3B8"/>
+    <rect x="353" y="227" width="126" height="8" rx="4" fill="#60A5FA"/>
+    <rect x="353" y="250" width="74" height="8" rx="4" fill="#F59E0B"/>
+    <text x="410" y="296" fill="#0F172A" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="800" text-anchor="middle">.journey</text>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="542" y="118" width="156" height="184" rx="18" fill="#111A2D" stroke="#2B3B56"/>
+    <text x="620" y="166" fill="#E6EEF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="21" font-weight="700" text-anchor="middle">Normalized</text>
+    <text x="620" y="194" fill="#E6EEF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="21" font-weight="700" text-anchor="middle">AST</text>
+    <circle cx="584" cy="236" r="8" fill="#14B8A6"/>
+    <circle cx="620" cy="236" r="8" fill="#60A5FA"/>
+    <circle cx="656" cy="236" r="8" fill="#F59E0B"/>
+    <path d="M584 236H656" stroke="#475569" stroke-width="3"/>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="734" y="118" width="156" height="184" rx="18" fill="#111A2D" stroke="#2B3B56"/>
+    <text x="812" y="163" fill="#E6EEF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="21" font-weight="700" text-anchor="middle">Agents +</text>
+    <text x="812" y="191" fill="#E6EEF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="21" font-weight="700" text-anchor="middle">Validators</text>
+    <rect x="774" y="224" width="76" height="12" rx="6" fill="#14B8A6"/>
+    <rect x="766" y="250" width="92" height="12" rx="6" fill="#60A5FA"/>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="926" y="92" width="110" height="236" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="981" y="138" fill="#0F172A" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="800" text-anchor="middle">Systems</text>
+    <rect x="954" y="169" width="54" height="42" rx="8" fill="#0F172A"/>
+    <rect x="954" y="225" width="54" height="42" rx="8" fill="#0F172A"/>
+    <rect x="954" y="281" width="54" height="12" rx="6" fill="#14B8A6"/>
+  </g>
+  <path d="M906 304C815 366 678 366 590 306" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+  <text x="748" y="372" fill="#A7F3D0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700" text-anchor="middle">repair + drift correction loops back into the journey</text>
+  <defs>
+    <linearGradient id="panel" x1="20" y1="20" x2="1080" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="0.52" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#111A2D"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020617" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#14B8A6" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+</svg>

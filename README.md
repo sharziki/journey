@@ -1,62 +1,186 @@
 <p align="center">
   <h1 align="center">Journey</h1>
-  <p align="center">A universal story format for software agents.<br/>Write the journey. Agents build, test, and repair the software.</p>
+  <p align="center">
+    <strong>The source-of-truth runtime for autonomous software engineering.</strong><br/>
+    Write the intent once. Agents generate, validate, repair, and evolve the implementation toward it.
+  </p>
 </p>
 
 <p align="center">
-  <a href="#vision">Vision</a> &bull;
-  <a href="#quickstart">Quickstart</a> &bull;
+  <a href="https://github.com/sharziki/journey/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/sharziki/journey/ci.yml?branch=main&label=CI"></a>
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB">
+  <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-f59e0b">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-0f766e"></a>
+</p>
+
+<p align="center">
+  <a href="#how-journey-works">How it works</a> &bull;
+  <a href="#in-30-seconds">30 seconds</a> &bull;
+  <a href="#why-this-is-different">Why different</a> &bull;
+  <a href="#what-gets-generated">Generated output</a> &bull;
   <a href="#journey-files">Journey Files</a> &bull;
-  <a href="#abstraction-model">Abstraction Model</a> &bull;
-  <a href="#cli-reference">CLI</a> &bull;
   <a href="#roadmap">Roadmap</a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/journey-hero.png" alt="Journey turns product stories into generated code, tests, and agent workflows." width="100%">
 </p>
 
 ---
 
-## Vision
+**From product story -> working system.**
 
-Journey is a portable intent format for making ideas real.
+Journey turns a `.journey` file into durable project memory for agents: what the product is, how it should behave, what done means, what is broken, and what cleanup work still needs to happen.
 
-A `.journey` file is the spine of a project: the product story, domain vocabulary, user workflows, rules, acceptance cases, and repair loop in one agent-readable document. Humans edit the journey. Agents read it as standing context and continuously move the codebase toward it.
+The current v0.1 proves the first slice: a structured journey compiles into a working FastAPI backend with SQLAlchemy models, Pydantic schemas, routes, and pytest coverage.
 
-The first working adapter generates backends, but Journey itself is intentionally target-neutral. The bigger goal is broader: a universal format that any coding agent, generator, validator, framework, runtime, or workflow tool can use to understand what should exist, what done means, and how to self-heal when implementation drifts.
+The bigger direction is more important:
+
+> Agents should not just generate code. They should keep moving a system toward its source of truth.
 
 ## The Problem
 
-Software starts as stories, but implementation scatters those stories across routes, models, schemas, permissions, tests, docs, tickets, and prompts. Once AI agents enter the loop, that fragmentation gets worse: agents repeatedly re-learn context, hallucinate contracts, and patch symptoms instead of preserving product intent.
+AI coding agents are powerful, but most of them are still prompt-driven.
 
-Journey gives agents a stable abstraction above the code. Instead of prompting an agent from scratch, you drop in a `.journey` file. It briefs the agent, defines the workflows, names the acceptance criteria, and gives the implementation a durable source of truth.
+They repeatedly re-learn context, hallucinate contracts, patch symptoms, and lose the product intent across files, chats, tickets, docs, and tests.
 
-## The Idea
+Journey gives agents a persistent spine:
 
-**Instead of editing code first, edit the journey.**
+- What are we building?
+- What behavior matters?
+- What does done mean?
+- What should be tested?
+- What drift still needs repair?
+- Which agent should pick up the next pass?
 
-Journey files are structured enough to compile and test, but readable enough to feel like product writing. They declare:
-- The **story** of what the product should do
-- The **entities** and vocabulary of the domain
-- The **steps** users or agents take
-- The **rules**, states, permissions, errors, and side effects
-- The **acceptance tests** that prove the story came to life
+## How Journey Works
 
-Today, one adapter turns a Journey backend workflow into a complete FastAPI project: models, schemas, routes, database, and a test harness that runs against a real database. Tomorrow, the same spine can guide frontend flows, docs, QA, migrations, agent onboarding, robots, data pipelines, internal tools, and self-healing repair loops.
+<p align="center">
+  <img src="docs/assets/journey-flow.svg" alt="Human intent flows into a .journey file, normalized into an AST, used by agents and validators, then corrected through repair loops." width="900">
+</p>
 
-## Quickstart
+```text
+Human Intent
+      |
+      v
+  .journey file
+      |
+      v
+ Normalized AST
+      |
+      v
+ Agents + Validators
+      |
+      v
+ Generated Systems
+      |
+      v
+ Repair + Drift Correction
+```
+
+## Why This Is Different
+
+| Traditional AI Coding | Journey |
+|-----------------------|---------|
+| Prompt-driven | Intent-driven |
+| Stateless | Persistent context |
+| Generates snippets | Maintains systems |
+| Re-learns architecture | Reads the project spine |
+| Patches symptoms | Repairs against acceptance |
+| Treats tests as optional | Makes tests part of the story |
+| Ends after a response | Keeps cycling until the journey is done |
+
+## In 30 Seconds
+
+Describe a system:
+
+```journey
+journey "Auth API" {
+  entity User {
+    email     string unique
+    password  string hashed
+    status    state(pending -> active -> suspended)
+  }
+
+  step signup {
+    input {
+      email     string required format(email)
+      password  string required min(8)
+    }
+    action {
+      user = create User(email: input.email, password: input.password, status: pending)
+    }
+    output {
+      user_id user.id
+    }
+  }
+}
+```
+
+Generate and run it:
 
 ```bash
-pip install -e .
-journey compile examples/auth_workspaces.journey
-journey test examples/auth_workspaces.journey
+python -m pip install -e ".[dev]"
+journey compile examples/auth_workspaces.journey --robustness strict --clean
+journey test examples/auth_workspaces.journey --robustness strict --clean
 journey run examples/auth_workspaces.journey
 ```
 
-Three commands. Parse, generate, validate, serve.
+Open the generated API docs at `http://127.0.0.1:8000/docs`.
 
-The repo also includes a self-referential example that describes Journey itself as an agent spine:
+You now have:
+
+- FastAPI routes
+- SQLAlchemy models
+- Pydantic schemas
+- state transition guards
+- generated pytest acceptance tests
+- agent-facing `JOURNEY.md`
+- machine-readable `journey.agent.json`
+- OpenAPI docs through FastAPI
+
+## What Gets Generated
+
+```text
+generated/auth_workspaces/
+├── JOURNEY.md            # agent-readable implementation checklist
+├── journey.agent.json    # machine-readable project spine
+├── app.py                # FastAPI app entrypoint
+├── database.py           # SQLAlchemy engine/session setup
+├── models.py             # generated SQLAlchemy models
+├── routes.py             # generated route handlers
+├── schemas.py            # generated Pydantic schemas
+└── test_journey.py       # generated acceptance tests
+```
+
+The output is normal application code. You can inspect it, edit it, test it, deploy it, or replace it with another adapter.
+
+## Use Cases
+
+- AI coding agents
+- autonomous software systems
+- backend generation
+- product specification
+- agent memory persistence
+- acceptance-driven development
+- self-healing infrastructure
+- multi-agent orchestration
+- drift detection and repair loops
+
+## Current Examples
+
+The repo includes two working journeys:
+
+| Journey | Purpose |
+|---------|---------|
+| `examples/auth_workspaces.journey` | Signup, login, workspace creation, invitations, states, and error cases |
+| `examples/journey_spine.journey` | A self-referential spec describing Journey as an agent-readable project spine |
+
+Try the self-referential Journey spine:
 
 ```bash
 journey inspect examples/journey_spine.journey
-journey test examples/journey_spine.journey
+journey test examples/journey_spine.journey --robustness strict --clean
 ```
 
 For a publish/CI-grade pass:
@@ -64,10 +188,52 @@ For a publish/CI-grade pass:
 ```bash
 python -m pytest
 journey validate examples/auth_workspaces.journey --strict
+journey validate examples/journey_spine.journey --strict
 journey test examples/auth_workspaces.journey --robustness strict --clean
+journey test examples/journey_spine.journey --robustness strict --clean
 python -m build
 python -m twine check dist/*
 ```
+
+## Vision
+
+Journey is persistent semantic infrastructure for autonomous software agents.
+
+A `.journey` file is the spine of a project: product story, domain vocabulary, workflows, rules, acceptance cases, open questions, crew roles, and repair notes in one agent-readable document.
+
+Humans edit the journey. Agents read it as standing context and continuously move the codebase toward it.
+
+In the full version, Journey is not a one-shot generator. It is the file agents keep coming back to:
+
+```text
+read the journey
+choose the next missing piece
+build or edit the implementation
+run checks and acceptance tests
+send cleanup agents through the result
+write down gaps, repairs, and decisions
+repeat until the journey is done
+```
+
+## What It Does
+
+Today:
+
+- Parses today's structured journey syntax into a typed AST
+- Validates cross-references, required inputs, states, and test calls
+- Generates FastAPI apps from journey steps and entities
+- Emits SQLAlchemy models, Pydantic schemas, routes, database setup, and pytest tests
+- Produces agent-facing artifacts: `JOURNEY.md` and `journey.agent.json`
+- Runs generated acceptance tests against the compiled app
+
+Next:
+
+- Natural-language journey sections
+- Builder/tester/reviewer/cleanup agent roles
+- Watch mode
+- Repair ledgers
+- Multi-target adapters
+- Drift correction against the journey
 
 ## Journey Files
 
@@ -145,32 +311,30 @@ journey "User Onboarding" {
 
 This compiles to a working FastAPI app with SQLAlchemy models, Pydantic schemas, route handlers, state machine validation, password hashing, session management, and end-to-end tests.
 
-Journey can also describe the bigger agent loop itself:
+Journey can also describe the bigger agent loop itself. The current parser uses structured blocks, but the direction is natural-language-first:
 
 ```journey
-journey "Journey Spine" {
-  description "A living agent-readable product spine that turns stories into working software"
+journey "Journey Spine"
 
-  entity JourneyFile {
-    title   string  unique
-    body    string
-    status  state(draft -> normalized -> implemented -> verified -> healing)
-  }
+mission:
+  Keep a software project moving from idea to verified implementation.
+  The journey is the source of truth. Agents may change code, tests, docs,
+  and generated artifacts, but every change should trace back to the journey.
 
-  step write_journey {
-    input {
-      title  string  required
-      body   string  required
-    }
-    action {
-      spine = create JourneyFile(title: input.title, body: input.body, status: draft)
-    }
-    output {
-      journey_id  spine.id
-      status      spine.status
-    }
-  }
-}
+crew:
+  planner:
+    Find the next unfinished requirement and break it into concrete work.
+  builder:
+    Implement the missing behavior.
+  tester:
+    Convert acceptance notes into repeatable checks.
+  cleanup:
+    Inspect the repo after each pass, run the checks, find drift, and either
+    repair it or write a repair note back into the journey.
+
+done when:
+  The implementation, tests, docs, and generated agent manifest all agree
+  with the journey, and the cleanup crew reports no open gaps.
 ```
 
 ## Abstraction Model
@@ -203,11 +367,11 @@ The `.journey` file is the portable contract. Everything else is a plugin around
 
 | Layer | Role |
 |-------|------|
-| **Journey file** | Human-editable story, workflow, rules, and acceptance |
+| **Journey file** | Human-editable story, workflow, rules, acceptance, crew roles, and repair notes |
 | **Journey AST** | Normalized intermediate representation tools can consume |
 | **Adapters** | Convert the AST into code, docs, plans, tests, prompts, or runtime config |
 | **Validators** | Check whether an implementation satisfies the journey |
-| **Agents** | Read the journey, update the world, report gaps, and repair drift |
+| **Agents** | Read the journey, update the world, report gaps, repair drift, and keep cycling |
 
 The current repo includes one concrete compiler adapter:
 
@@ -240,7 +404,7 @@ The current repo includes one concrete compiler adapter:
 
 | Component | What it does |
 |-----------|-------------|
-| **Journey file** | Acts as the agent-readable source of intent |
+| **Journey file** | Acts as the agent-readable source of intent and the running work ledger |
 | **Entities** | Compile to SQLAlchemy models with auto-generated IDs, timestamps, foreign keys, and state machine validation |
 | **State fields** | Generate enum classes with transition guards — invalid transitions raise at runtime |
 | **Steps** | Become FastAPI route handlers with typed request/response schemas |
@@ -306,19 +470,15 @@ journey/
     └── main.py         # compile, test, run, inspect commands
 ```
 
-## Why This Exists
+## Agent Crew
 
-The AI agent workflow for building software needs a shared spine:
-
-| Without Journey | With Journey |
-|----------------|-------------|
-| Intent spread across prompts, code, docs, and tests | Intent lives in a `.journey` spine |
-| Agents repeatedly re-learn the product | Agents can be briefed by the same file |
-| Endpoints and types get hallucinated | Contracts are generated and tested from the journey |
-| Refactors drift from the product story | Changes flow through the source-of-truth journey |
-| Debugging starts from code symptoms | Repair starts from acceptance failures against the journey |
-
-Journey is designed to be the **first thing an agent reads or writes**. It is a project constitution, an executable spec, and eventually a persistent goal file that agents can watch.
+| Role | Responsibility |
+|------|----------------|
+| **Planner** | Reads the journey and chooses the next unfinished slice |
+| **Builder** | Edits code, generated artifacts, docs, or tests |
+| **Tester** | Turns acceptance notes into repeatable checks |
+| **Reviewer** | Compares implementation behavior against the journey |
+| **Cleanup** | Finds drift, removes stale work, records repair notes, and sends the loop around again |
 
 ## Journey is right for you if
 
@@ -343,24 +503,29 @@ Journey is designed to be the **first thing an agent reads or writes**. It is a 
 
 ## Status
 
-This is v0.1 — a working proof of concept for the first compiler target. The parser, DSL, backend codegen, and generated test harness work for the included auth/workspaces journey and the self-describing Journey spine example.
+This is v0.1 — a working proof of concept for the first compiler target. The parser, structured journey syntax, backend codegen, and generated test harness work for the included auth/workspaces journey and the self-describing Journey spine example.
 
-The big vision is active-agent development: edit `.journey` files, have agents normalize the story, generate or update implementation, run acceptance tests, report gaps, and repair drift.
+The big vision is active-agent development: edit `.journey` files in natural language, have agents normalize the story, generate or update implementation, run acceptance tests, send cleanup through the repo, report gaps, and repair drift until done.
 
 ## Roadmap
 
-- [x] DSL design — entities, steps, state machines, tests
+The roadmap is intentionally open because Journey is meant to become the work queue for agents. Checked items are working in v0.1. Open items are the next jobs the agent crew should be able to pick up, implement, verify, and mark complete from the journey itself.
+
+- [x] Structured v0.1 syntax — entities, steps, state machines, tests
 - [x] Parser — lexer + recursive descent → typed AST
 - [x] Code generation — models, schemas, routes, tests
 - [x] CLI — compile, test, run, inspect
 - [x] End-to-end validation — auth+workspaces journey passes all tests
 - [x] Self-referential Journey spine example — Journey described as a journey
+- [ ] Natural-language journey sections — mission, story, principles, crew, done-when, open questions, repair notes
+- [ ] Agent crew manifest — planner, builder, tester, reviewer, cleanup roles encoded for agents
+- [ ] Watch mode — agents watch `.journey`, choose the next incomplete item, regenerate, test, and repeat
+- [ ] Cleanup mode — inspect generated code, docs, tests, and manifests for drift from the journey
+- [ ] Repair ledger — every failed check creates a traceable note back in the journey
 - [ ] Generic codegen — eliminate hardcoded patterns, make it work for any journey
-- [ ] Agent spine sections — intent, vocabulary, principles, open questions, acceptance, repair notes
-- [ ] Watch mode — edit `.journey`, auto-regenerate + re-test
-- [ ] Repair mode — diagnose failing acceptance cases and update code or journey with a trace
+- [ ] Repair mode — diagnose failing acceptance cases and update code, tests, or journey with a trace
 - [ ] Multi-target outputs — backend, frontend flow hints, docs, QA checklists, OpenAPI
-- [ ] Enriched DSL — explicit routes, error conditions, hooks, auth config
+- [ ] Enriched structured anchors — explicit routes, error conditions, hooks, auth config when natural language needs precision
 - [ ] Event system — side effects (email, webhooks) as emittable events
 - [ ] Second validation spec — e-commerce journey compiles with zero new special cases
 - [ ] Plugin system — custom action handlers, auth strategies, DB backends
@@ -371,9 +536,9 @@ The big vision is active-agent development: edit `.journey` files, have agents n
 This is early. If the idea resonates, open an issue or PR. The most impactful contributions right now:
 
 1. **Write a new `.journey` spec** that breaks the codegen — this reveals where generalization is needed
-2. **Propose story syntax** for intent, vocabulary, principles, open questions, and repair notes
+2. **Propose natural-language sections** for intent, vocabulary, principles, crew roles, open questions, and repair notes
 3. **Improve the codegen** to handle more patterns generically
-4. **Design agent loops** that watch a journey, implement missing behavior, verify, and self-heal
+4. **Design agent loops** that watch a journey, implement missing behavior, verify, clean up, and self-heal
 
 ## License
 

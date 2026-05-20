@@ -1,16 +1,16 @@
 # Journey Vision
 
-Journey is a universal story format for software agents.
+Journey is natural-language project memory for software agents.
 
-The core idea is simple: software should start from a durable, readable product story. A `.journey` file captures that story as workflows, entities, rules, acceptance cases, open questions, and repair notes. Humans edit the journey. Agents and tools use it as the project spine.
+The core idea is simple: software should start from a durable, readable product story. A `.journey` file captures that story as mission, workflows, entities, rules, acceptance cases, crew roles, open questions, and repair notes. Humans edit the journey. Agents and tools use it as the project spine.
 
 Journey must stay abstract. It is not a FastAPI format, a frontend format, or a task format. It is an intent format with adapters.
 
 ## Product Promise
 
-Write the journey. Agents build the software.
+Write what should exist. Agents keep working until the journey is done.
 
-Journey should let someone describe an idea in structured natural language, then have agents turn that description into working implementation, tests, docs, and ongoing repairs.
+Journey should let someone describe an idea in natural language, add structure only where precision matters, then have agents turn that description into working implementation, tests, docs, cleanup passes, and ongoing repairs.
 
 ## What A Journey File Is
 
@@ -20,11 +20,13 @@ A `.journey` file is:
 - an agent briefing
 - an executable spec
 - a test contract
+- a crew assignment file
 - a repair target
+- a cleanup ledger
 - a portable handoff format
 - a neutral intermediate representation for tools
 
-It should be readable like a short design paper and strict enough that agents and compilers can act on it.
+It should be readable like a short design paper and strict enough in the right places that agents and compilers can act on it.
 
 ## Plug-In Model
 
@@ -36,6 +38,7 @@ Anyone should be able to plug anything into Journey:
 - documentation tools that explain journeys to humans
 - planners that break journeys into tasks
 - repair loops that use journeys as the source of truth
+- cleanup agents that inspect the repo, find drift, remove stale work, and write repair notes
 - framework adapters for FastAPI, Django, Next.js, mobile apps, infra, data jobs, or internal tools
 
 The stable contract is:
@@ -49,14 +52,17 @@ Adapters can produce anything. The journey remains the portable spine.
 ## The Loop
 
 ```text
-write journey
-agent reads spine
-agent updates implementation
-tests verify acceptance
-agent reports gaps
-agent repairs drift
-journey remains source of truth
+write or update the journey
+planner picks the next unfinished slice
+builder updates implementation
+tester turns acceptance into checks
+reviewer compares behavior to the journey
+cleanup finds drift and stale work
+agent records gaps or repairs them
+loop continues until the journey is done
 ```
+
+This is the important part: Journey is not meant to be a one-shot code generator. It is meant to be the file an agent crew keeps returning to. The crew should be able to ask, "What still does not match the journey?", do the work, verify it, clean up after itself, and mark the journey closer to done.
 
 ## First Target
 
@@ -75,19 +81,21 @@ The broader direction is multi-target agent development:
 - infrastructure plans
 - support workflows
 - data pipelines
+- cleanup reports
+- repair ledgers
 
 ## Design Principles
 
-Readable first. Journey should feel like writing the product behavior, not like filling out framework config.
+Natural language first. Journey should feel like writing the product behavior, not like filling out framework config.
 
 Target-neutral core. The Journey AST should not know or care whether an adapter outputs Python, TypeScript, docs, tasks, prompts, or runtime configuration.
 
-Structured where it matters. Inputs, outputs, entities, state transitions, errors, permissions, and acceptance cases need deterministic shape.
+Structured where it matters. Inputs, outputs, entities, state transitions, errors, permissions, acceptance cases, and crew handoff points need deterministic shape.
 
-Agents are first-class users. The format should brief agents, coordinate agents, and give them a stable memory of the project.
+Agents are first-class users. The format should brief agents, coordinate agents, assign cleanup work, and give them a stable memory of the project.
 
 Generated code is disposable. The journey is the asset. Implementation can be regenerated, repaired, or replaced.
 
 Tests are part of the story. A journey should say what happens and prove it happens.
 
-Self-healing is a product requirement. When implementation drifts, Journey should help identify whether the code, tests, or story needs to change.
+Self-healing is a product requirement. When implementation drifts, Journey should help identify whether the code, tests, docs, generated artifacts, or story needs to change.

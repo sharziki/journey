@@ -41,9 +41,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/journey-lang/journey"
-Repository = "https://github.com/journey-lang/journey"
-Issues = "https://github.com/journey-lang/journey/issues"
+Homepage = "https://github.com/sharziki/journey"
+Repository = "https://github.com/sharziki/journey"
+Issues = "https://github.com/sharziki/journey/issues"
 
 [tool.setuptools.packages.find]
 include = ["journey*"]
