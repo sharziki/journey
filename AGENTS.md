@@ -4,6 +4,8 @@ This repository uses `.journey` files as the source of truth for agent work.
 
 When an AI coding agent or coding terminal enters this repo, it should treat any `.journey` file as the project spine. Do not start from scattered code context alone.
 
+If a journey cites a design file, such as `design: ./design.md`, read that design file before implementing product-facing behavior.
+
 ## Default Loop
 
 1. Find journey files:
@@ -41,7 +43,7 @@ When an AI coding agent or coding terminal enters this repo, it should treat any
 
 ## Current Contract
 
-Today, `journey agent` does not spawn background agents. It prepares the workspace for an agent by:
+Today, `journey agent` does not spawn background agents or open Codex terminals by itself. It prepares the workspace for an agent by:
 
 - parsing the `.journey`
 - validating it strictly
@@ -52,10 +54,13 @@ Today, `journey agent` does not spawn background agents. It prepares the workspa
 
 The intended behavior for agents is to keep looping on those artifacts until the generated acceptance tests pass and no obvious drift remains.
 
+For the handwritten natural-language journey direction, read `docs/handwritten-journey-format.md`.
+
 ## Repair Rules
 
 - Prefer changing implementation to match the journey.
 - Change the journey only when the product intent itself is wrong or incomplete.
+- If the journey references `design.md`, preserve that design intent unless the user says otherwise.
 - When tests fail, treat the failure as the next work item.
 - Keep generated artifacts consistent with the source `.journey`.
 - Do not remove acceptance coverage to make a journey pass.

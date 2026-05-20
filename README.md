@@ -174,6 +174,46 @@ journey agent <file.journey>
 
 This does not spawn background agents yet. It makes the repo self-onboarding for agents that understand shell commands and instruction files like `AGENTS.md`.
 
+## Handwritten Journeys
+
+The intended `.journey` format is natural-language first.
+
+At the top level, a journey should be able to say:
+
+```journey
+journey "Workspace Invite"
+
+design: ./design.md
+
+mission:
+  Let a workspace owner invite a teammate and know exactly what happened.
+
+pages:
+  - Signup
+  - Verify Email
+  - Workspace Home
+  - Invite Teammate
+
+page "Invite Teammate":
+  purpose:
+    Let a workspace owner invite another person by email and role.
+
+  user sees:
+    - teammate email
+    - role selector
+    - send invite button
+    - invitation status
+
+  acceptance:
+    - owner can invite a teammate
+    - non-owner cannot invite
+    - duplicate invitation is rejected
+```
+
+That format is the direction: high-level pages and flows first, then readable per-page specs, acceptance, cleanup, and optional `design.md` references. The v0.1 compiler still uses the structured backend syntax for generation.
+
+See [docs/handwritten-journey-format.md](docs/handwritten-journey-format.md) and [docs/design.md](docs/design.md).
+
 ## Use Cases
 
 - AI coding agents
@@ -248,6 +288,9 @@ Today:
 Next:
 
 - Natural-language journey sections
+- High-level `pages` and `flows`
+- Per-page handwritten specs
+- `design.md` references
 - Builder/tester/reviewer/cleanup agent roles
 - Watch mode
 - Repair ledgers

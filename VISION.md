@@ -12,6 +12,30 @@ Write what should exist. Agents keep working until the journey is done.
 
 Journey should let someone describe an idea in natural language, add structure only where precision matters, then have agents turn that description into working implementation, tests, docs, cleanup passes, and ongoing repairs.
 
+The ideal `.journey` file should be handwritten. It should start with high-level product shape, then drill into pages, flows, acceptance, and cleanup:
+
+```journey
+journey "Product"
+
+design: ./design.md
+
+pages:
+  - Landing
+  - Signup
+  - Dashboard
+
+page "Dashboard":
+  purpose:
+    Show the user what needs attention.
+
+  acceptance:
+    - empty state is useful
+    - loading state is clear
+    - primary action is obvious
+```
+
+The page spec should feel like a readable design/product note, not framework config.
+
 ## What A Journey File Is
 
 A `.journey` file is:
@@ -23,6 +47,8 @@ A `.journey` file is:
 - a crew assignment file
 - a repair target
 - a cleanup ledger
+- a page and flow map
+- a pointer to design context
 - a portable handoff format
 - a neutral intermediate representation for tools
 
