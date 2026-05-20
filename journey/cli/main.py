@@ -9,7 +9,9 @@ Usage:
 """
 
 import argparse
+import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -202,9 +204,6 @@ def cmd_manifest(args):
 
 def cmd_agent(args):
     """Prepare and verify a journey for coding agents."""
-    from ..parser import parse_file
-    from ..adapters.fastapi import generate
-
     source = args.file
     output = args.output or _default_output_dir(source)
     config = _config_from_args(args).with_overrides(
@@ -214,13 +213,7 @@ def cmd_agent(args):
         generate_markdown_summary=True,
     )
 
-    print(f"Reading journey source of truth: {source}")
-    spec = parse_file(source)
-
-    print(f"Preparing agent workspace: {output}/")
-    result = generate(spec, output, config=config)
-    for path in result.files:
-        print(f"  {path}")
+    _prepare_agent_workspace(source, output, config)
 
     print("\nAgent handoff:")
     print(f"  1. Read {Path(output) / 'JOURNEY.md'}")
@@ -232,24 +225,179 @@ def cmd_agent(args):
         print("\nSkipped generated tests (--no-test).")
         return
 
-    print("\nRunning generated acceptance tests...")
-    output_path = Path(output).resolve()
-    test_file = output_path / "test_journey.py"
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", str(test_file)],
-        cwd=str(output_path.parent),
-    )
-    if result.returncode == 0:
+    returncode = _run_agent_qa(output)
+    if returncode == 0:
         print("\nJourney accepted: generated implementation satisfies current acceptance tests.")
     else:
         print("\nJourney needs repair: use the failure output as the next agent work item.")
-    sys.exit(result.returncode)
+    sys.exit(returncode)
+
+
+def cmd_watch(args):
+    """Run the journey builder/QA loop deliverable by deliverable."""
+    from ..parser import parse_file
+    from ..core import normalize
+
+    source = args.file
+    output = args.output or _default_output_dir(source)
+    config = _config_from_args(args).with_overrides(
+        strict_validation=True,
+        fail_on_warnings=True,
+        generate_agent_manifest=True,
+        generate_markdown_summary=True,
+    )
+
+    spec = parse_file(source)
+    journey = normalize(spec)
+    checklist = list(journey.checklist())
+    state_path = _watch_state_path(args.state_dir, journey.slug)
+    state = _load_watch_state(state_path)
+    completed = set(state.get("completed", []))
+    cycles = 0
+
+    while cycles < args.max_cycles:
+        current_index = _next_incomplete_index(checklist, completed)
+        _print_watch_dashboard(journey.name, checklist, completed, current_index)
+
+        if current_index is None:
+            print("\nJourney complete: all deliverables are marked complete.")
+            return
+
+        item = checklist[current_index]
+        print(f"\nBuilder session target [{current_index + 1}/{len(checklist)}]: {item}")
+        _prepare_agent_workspace(source, output, config)
+
+        builder_code = _run_builder_session(args, source, output, item, current_index, len(checklist))
+        if builder_code != 0:
+            print("\nBuilder session failed. Fix that before QA can advance the journey.")
+            sys.exit(builder_code)
+
+        print("\nQA agent: running generated acceptance tests...")
+        qa_code = _run_agent_qa(output)
+        if qa_code != 0:
+            print("\nQA failed. Keeping the current deliverable active for repair.")
+            sys.exit(qa_code)
+
+        completed.add(item)
+        state = {"journey": journey.name, "slug": journey.slug, "completed": sorted(completed)}
+        _save_watch_state(state_path, state)
+        print(f"\nQA passed. Deliverable accepted: {item}")
+        print("Triggering next deliverable...")
+
+        cycles += 1
+        if args.once:
+            break
+
+    next_index = _next_incomplete_index(checklist, completed)
+    _print_watch_dashboard(journey.name, checklist, completed, next_index)
+    if next_index is None:
+        print("\nJourney complete: all deliverables are marked complete.")
+    else:
+        print("\nPaused. Re-run the same watch command to continue.")
 
 
 def _default_output_dir(source: str) -> str:
     """Derive output directory from source file."""
     name = Path(source).stem
     return os.path.join("generated", name)
+
+
+def _prepare_agent_workspace(source: str, output: str, config: RobustnessConfig):
+    from ..parser import parse_file
+    from ..adapters.fastapi import generate
+
+    print(f"Reading journey source of truth: {source}")
+    spec = parse_file(source)
+
+    print(f"Preparing agent workspace: {output}/")
+    result = generate(spec, output, config=config)
+    for path in result.files:
+        print(f"  {path}")
+    return result
+
+
+def _run_agent_qa(output: str) -> int:
+    output_path = Path(output).resolve()
+    if not output_path.name.isidentifier():
+        print(
+            f"Cannot run generated QA for {output_path}: output directory "
+            "must be a valid Python package name."
+        )
+        return 2
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", str(output_path.name)],
+        cwd=str(output_path.parent),
+    )
+    return result.returncode
+
+
+def _watch_state_path(state_dir: str, slug: str) -> Path:
+    return Path(state_dir) / f"{slug}.json"
+
+
+def _load_watch_state(path: Path) -> dict:
+    if not path.exists():
+        return {"completed": []}
+    return json.loads(path.read_text())
+
+
+def _save_watch_state(path: Path, state: dict):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2) + "\n")
+
+
+def _next_incomplete_index(checklist: list[str], completed: set[str]) -> int | None:
+    for index, item in enumerate(checklist):
+        if item not in completed:
+            return index
+    return None
+
+
+def _run_builder_session(args, source: str, output: str, item: str, index: int, total: int) -> int:
+    command = args.agent_command or os.environ.get("JOURNEY_AGENT_COMMAND")
+    if not command:
+        print("\nNo builder command configured.")
+        print("Set JOURNEY_AGENT_COMMAND or pass --agent-command to spawn a coding agent per deliverable.")
+        print("Example:")
+        print('  journey watch examples/auth_workspaces.journey --agent-command "codex exec ..."')
+        print("Continuing directly to QA because the generated implementation is already present.")
+        return 0
+
+    values = {
+        "journey_file": source,
+        "output_dir": output,
+        "item": item,
+        "index": str(index + 1),
+        "total": str(total),
+        "handoff_md": str(Path(output) / "JOURNEY.md"),
+        "handoff_json": str(Path(output) / "journey.agent.json"),
+    }
+    formatted = command.format(**values)
+    print("\nSpawning builder session:")
+    print(f"  {formatted}")
+    result = subprocess.run(shlex.split(formatted))
+    return result.returncode
+
+
+def _print_watch_dashboard(journey_name: str, checklist: list[str], completed: set[str], current_index: int | None):
+    width = 78
+    print()
+    print("+" + "-" * width + "+")
+    print("|" + " JOURNEY WATCH ".center(width) + "|")
+    print("|" + journey_name.center(width) + "|")
+    print("+" + "-" * width + "+")
+    for index, item in enumerate(checklist):
+        if item in completed:
+            marker = "[x]"
+        elif current_index == index:
+            marker = "[>]"
+        else:
+            marker = "[ ]"
+        label = f"{marker} {index + 1:02d}. {item}"
+        print("| " + label[: width - 2].ljust(width - 2) + " |")
+    print("+" + "-" * width + "+")
+    if current_index is not None:
+        print(f"current: {checklist[current_index]}")
 
 
 def _add_robustness_args(parser):
@@ -325,6 +473,16 @@ def main():
     p_agent.add_argument("--no-test", action="store_true", help="Prepare agent artifacts without running generated tests")
     _add_robustness_args(p_agent)
 
+    # watch
+    p_watch = sub.add_parser("watch", help="Run the builder/QA journey loop")
+    p_watch.add_argument("file", help="Path to .journey file")
+    p_watch.add_argument("-o", "--output", help="Output directory")
+    p_watch.add_argument("--state-dir", default=".journey/state", help="Directory for journey watch state")
+    p_watch.add_argument("--agent-command", help="Command template for one builder session per deliverable")
+    p_watch.add_argument("--once", action="store_true", help="Run one deliverable and stop")
+    p_watch.add_argument("--max-cycles", type=int, default=1, help="Maximum deliverables to advance in one run")
+    _add_robustness_args(p_watch)
+
     args = parser.parse_args()
 
     if args.command == "compile":
@@ -341,6 +499,8 @@ def main():
         cmd_manifest(args)
     elif args.command == "agent":
         cmd_agent(args)
+    elif args.command == "watch":
+        cmd_watch(args)
     else:
         parser.print_help()
 

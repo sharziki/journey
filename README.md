@@ -174,6 +174,23 @@ journey agent <file.journey>
 
 This does not spawn background agents yet. It makes the repo self-onboarding for agents that understand shell commands and instruction files like `AGENTS.md`.
 
+For an autonomous deliverable loop, use watch mode:
+
+```bash
+journey watch examples/auth_workspaces.journey
+```
+
+It shows the active deliverable, prepares the handoff, runs QA, and advances only after tests pass.
+
+To spawn a fresh Codex session for each deliverable, provide a command template:
+
+```bash
+journey watch examples/auth_workspaces.journey \
+  --agent-command "codex exec \"Work on: {item}. Read {handoff_md} and {handoff_json}.\""
+```
+
+Available template values: `{journey_file}`, `{output_dir}`, `{item}`, `{index}`, `{total}`, `{handoff_md}`, `{handoff_json}`.
+
 ## Handwritten Journeys
 
 The intended `.journey` format is natural-language first.
@@ -481,6 +498,7 @@ This FastAPI path proves the shape, but it should not define the ceiling. A good
 | Command | What it does |
 |---------|-------------|
 | `journey agent <file>` | Prepare agent handoff files, generate implementation, and run acceptance tests |
+| `journey watch <file>` | Run the deliverable-by-deliverable builder/QA loop |
 | `journey compile <file>` | Parse and generate FastAPI project |
 | `journey test <file>` | Compile + run all test scenarios |
 | `journey run <file>` | Compile + start uvicorn with hot reload |

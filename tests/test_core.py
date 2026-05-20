@@ -4,7 +4,7 @@ from argparse import Namespace
 import pytest
 
 from journey.adapters.fastapi import generate
-from journey.cli.main import cmd_agent
+from journey.cli.main import cmd_agent, cmd_watch
 from journey.core.config import RobustnessConfig
 from journey.core.normalize import normalize
 from journey.core.validation import JourneyValidationError, validate
@@ -125,3 +125,26 @@ def test_agent_command_writes_handoff_without_tests(tmp_path):
     manifest = json.loads((tmp_path / "journey.agent.json").read_text())
     assert manifest["schema"] == "journey.agent.v1"
     assert manifest["slug"] == "journey-spine"
+
+
+def test_watch_command_advances_one_deliverable(tmp_path):
+    output = tmp_path / "generated"
+    state_dir = tmp_path / "state"
+    args = Namespace(
+        file="examples/journey_spine.journey",
+        output=str(output),
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+        state_dir=str(state_dir),
+        agent_command=None,
+        once=True,
+        max_cycles=1,
+    )
+
+    cmd_watch(args)
+
+    state = json.loads((state_dir / "journey-spine.json").read_text())
+    assert state["completed"] == ["Parse journey 'Journey Spine'"]

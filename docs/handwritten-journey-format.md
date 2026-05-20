@@ -138,6 +138,31 @@ When an agent sees a handwritten journey:
 - Turn acceptance bullets into tests whenever possible.
 - Keep looping until acceptance passes and cleanup finds no drift.
 
+## Watch Runner
+
+Use the runner when you want the journey to advance deliverable by deliverable:
+
+```bash
+journey watch product.journey
+```
+
+With a coding agent command:
+
+```bash
+journey watch product.journey \
+  --agent-command "codex exec \"Work on: {item}. Read {handoff_md} and {handoff_json}.\""
+```
+
+The runner:
+
+- prints the current journey board
+- picks the next incomplete deliverable
+- prepares `JOURNEY.md` and `journey.agent.json`
+- runs one builder command for that deliverable
+- runs QA
+- marks the deliverable complete only after QA passes
+- triggers the next deliverable on the next loop
+
 ## Current Implementation Note
 
 The v0.1 compiler does not yet parse this full natural-language format.

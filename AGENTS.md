@@ -39,7 +39,19 @@ If a journey cites a design file, such as `design: ./design.md`, read that desig
    journey agent <file.journey>
    ```
 
-6. If implementation and journey disagree, preserve the journey as the source of truth unless the user explicitly asks to change the product intent.
+6. For autonomous deliverable-by-deliverable work, run:
+
+   ```bash
+   journey watch <file.journey>
+   ```
+
+   To spawn a coding agent for each deliverable, pass a command template:
+
+   ```bash
+   journey watch <file.journey> --agent-command "codex exec \"Work on: {item}. Read {handoff_md} and {handoff_json}.\""
+   ```
+
+7. If implementation and journey disagree, preserve the journey as the source of truth unless the user explicitly asks to change the product intent.
 
 ## Current Contract
 
@@ -53,6 +65,14 @@ Today, `journey agent` does not spawn background agents or open Codex terminals 
 - running generated pytest acceptance tests
 
 The intended behavior for agents is to keep looping on those artifacts until the generated acceptance tests pass and no obvious drift remains.
+
+`journey watch` adds a runner loop on top:
+
+- shows an ASCII dashboard of the active deliverable
+- starts one builder session per checklist item when `--agent-command` or `JOURNEY_AGENT_COMMAND` is configured
+- runs QA after the builder session
+- marks the deliverable complete only after QA passes
+- triggers the next deliverable
 
 For the handwritten natural-language journey direction, read `docs/handwritten-journey-format.md`.
 
