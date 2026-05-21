@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "journey-lang"
-version = "0.2.0"
+version = "0.2.1"
 description = "Journey maps repo, page, API, and acceptance intent into lightweight files that coding agents can read, validate, and repair against."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["agents", "journey", "product-intent", "codegen", "fastapi", "pytest", "ai"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Framework :: FastAPI",
     "Intended Audience :: Developers",

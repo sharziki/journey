@@ -1,0 +1,140 @@
+journey "Library Borrowing" {
+  description "Register members, add books, borrow available books, and return active loans"
+
+  entity Member {
+    email       string  unique
+    password    string  hashed
+    name        string
+    status      state(active -> suspended)
+    created_at  timestamp  auto
+  }
+
+  entity Book {
+    isbn        string  unique
+    title       string
+    status      state(available -> borrowed)
+    created_at  timestamp  auto
+  }
+
+  entity Loan {
+    member      Member
+    book        Book
+    status      state(active -> returned)
+    created_at  timestamp  auto
+  }
+
+  step register_member {
+    actor anonymous
+    input {
+      email     string  required  format(email)
+      password  string  required  min(8)
+      name      string  required
+    }
+    action {
+      member = create Member(email: input.email, password: input.password, name: input.name, status: active)
+    }
+    output {
+      member_id  member.id
+      status     member.status
+    }
+    errors {
+      email_taken  "Member already exists"  409
+    }
+  }
+
+  step login_member {
+    actor anonymous
+    input {
+      email     string  required  format(email)
+      password  string  required
+    }
+    action {
+      member = find Member(email: input.email)
+      verify password(input.password, member.password)
+      session = create_session(member)
+    }
+    output {
+      token  session.token
+    }
+    errors {
+      invalid_credentials  "Invalid credentials"  401
+    }
+  }
+
+  step add_book {
+    actor anonymous
+    input {
+      isbn   string  required
+      title  string  required
+    }
+    action {
+      book = create Book(isbn: input.isbn, title: input.title, status: available)
+    }
+    output {
+      book_id  book.id
+      status   book.status
+    }
+    errors {
+      duplicate_book  "Book already exists"  409
+    }
+  }
+
+  step borrow_book {
+    requires login_member
+    actor Member  authenticated
+    input {
+      isbn  string  required
+    }
+    action {
+      book = find Book(isbn: input.isbn, status: available)
+      loan = create Loan(member: actor, book: book, status: active)
+      book.status -> borrowed
+    }
+    output {
+      loan_id      loan.id
+      book_status  book.status
+    }
+    errors {
+      unavailable_book  "Book is missing or already borrowed"  400
+    }
+  }
+
+  step return_book {
+    requires borrow_book
+    actor Member  authenticated
+    input {
+      loan_id  id  required
+      book_id  id  required
+    }
+    action {
+      loan = find Loan(id: input.loan_id, status: active)
+      loan.status -> returned
+    }
+    output {
+      loan_status  loan.status
+    }
+    errors {
+      invalid_loan  "Loan is missing or already returned"  400
+    }
+  }
+
+  test "member borrows and returns a book" {
+    do register_member(email: "reader@example.com", password: "secretpass", name: "Reader One")
+      expect status 201
+
+    do login_member(email: "reader@example.com", password: "secretpass")
+      expect status 200
+      capture token
+
+    do add_book(isbn: "9780441172719", title: "Dune")
+      expect status 201
+      capture book_id
+
+    do borrow_book(isbn: "9780441172719")
+      expect status 201
+      capture loan_id
+
+    do return_book(loan_id: loan_id, book_id: book_id)
+      expect status 200
+  }
+}

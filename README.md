@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/sharziki/journey/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/sharziki/journey/ci.yml?branch=main&label=CI"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB">
-  <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-f59e0b">
+  <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-2563eb">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-0f766e"></a>
 </p>
 
@@ -36,14 +36,20 @@ The bigger idea is simple: agents should not start from scattered prompts. They 
 
 ## 2 Minute Quickstart
 
-Create a lightweight journey map for any repo:
+Install Journey, then create a lightweight journey map for any repo:
+
+```bash
+python -m pip install journey-lang
+journey create .
+journey status .
+```
+
+For local development from this repo:
 
 ```bash
 git clone https://github.com/sharziki/journey.git
 cd journey
 python -m pip install -e ".[dev]"
-journey create .
-journey status .
 ```
 
 That writes a linked `.journey` graph:
@@ -230,6 +236,7 @@ Structured adapter examples:
 | `examples/crm_sales_pipeline.journey` | CRM accounts, contacts, deals, and qualification | `journey test examples/crm_sales_pipeline.journey --clean` |
 | `examples/ai_receptionist_backend.journey` | AI receptionist call capture and appointment booking | `journey test examples/ai_receptionist_backend.journey --clean` |
 | `examples/car_dealership_leads.journey` | Dealer lead capture, contact, and test-drive scheduling | `journey test examples/car_dealership_leads.journey --clean` |
+| `examples/library_borrowing.journey` | Library members, login/session flow, authenticated borrow and return | `journey test examples/library_borrowing.journey --clean` |
 | `examples/journey_spine.journey` | Journey dogfooding itself as an agent-readable project spine | `journey agent examples/journey_spine.journey` |
 
 Run every shipped example:
@@ -386,7 +393,7 @@ journey/
 
 ## Status
 
-Journey is v0.1 alpha.
+Journey is v0.2.1 beta. The core lightweight journey graph workflow and FastAPI adapter are usable today, with CI covering unit tests, shipped examples, generated acceptance tests, package builds, and release artifacts.
 
 Working today:
 
@@ -411,7 +418,7 @@ Still early:
 - natural-language journeys are agent-readable today, but not yet a full codegen target
 - FastAPI is the only codegen adapter today
 - autonomous execution depends on a configured local agent runtime
-- the codegen needs more examples to force generalization
+- the codegen should keep gaining examples across domains to force generalization
 
 ## Roadmap
 
@@ -426,6 +433,7 @@ Still early:
 - [x] CRM example
 - [x] AI receptionist backend example
 - [x] Car dealership lead system example
+- [x] Library borrowing example with authenticated member/session flow
 - [x] Journey dogfoods itself with `examples/journey_spine.journey`
 - [ ] GIF demo for README
 - [ ] Natural-language journey sections as first-class compiler input
