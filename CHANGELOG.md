@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.7
+
+- Expanded release artifact e2e coverage so CI and release workflows install-test every built distribution artifact, including the wheel and source distribution.
+- Generalized the installed-artifact smoke script to accept either wheel or sdist inputs.
+
 ## 0.2.6
 
 - Guarded `journey.__main__` so importing it no longer executes the CLI.

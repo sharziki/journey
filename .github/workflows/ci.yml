@@ -53,5 +53,9 @@ jobs:
         run: |
           python -m build
           python -m twine check dist/*
-      - name: Wheel install e2e
-        run: scripts/e2e_wheel_smoke.sh
+      - name: Distribution artifact e2e
+        run: |
+          set -e
+          for artifact in dist/journey_lang-*; do
+            scripts/e2e_wheel_smoke.sh "$artifact"
+          done

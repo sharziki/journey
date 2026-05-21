@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-wheel="${1:-}"
-if [[ -z "$wheel" ]]; then
-  wheel="$(ls dist/journey_lang-*.whl | sort -V | tail -n 1)"
+artifact="${1:-}"
+if [[ -z "$artifact" ]]; then
+  artifact="$(ls dist/journey_lang-* | sort -V | tail -n 1)"
 fi
 
-if [[ ! -f "$wheel" ]]; then
-  echo "Wheel not found: $wheel" >&2
+if [[ ! -f "$artifact" ]]; then
+  echo "Distribution artifact not found: $artifact" >&2
   exit 2
 fi
 
@@ -16,7 +16,7 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 python -m venv "$tmpdir/venv"
 "$tmpdir/venv/bin/python" -m pip install --upgrade pip >/dev/null
-"$tmpdir/venv/bin/python" -m pip install "$wheel" >/dev/null
+"$tmpdir/venv/bin/python" -m pip install "$artifact" >/dev/null
 "$tmpdir/venv/bin/journey" --version | grep -E '^journey [0-9]+\.[0-9]+\.[0-9]+'
 "$tmpdir/venv/bin/python" -m journey --version | grep -E '^journey [0-9]+\.[0-9]+\.[0-9]+'
 "$tmpdir/venv/bin/python" -c 'import importlib.metadata, journey; assert journey.__version__ == importlib.metadata.version("journey-lang")'
@@ -55,4 +55,4 @@ test -f "$project/.journey/JOURNEY_FLOW.md"
 test -f "$project/handoff/JOURNEY.md"
 test -f "$project/handoff/journey.agent.json"
 
-echo "wheel smoke ok: $wheel"
+echo "artifact smoke ok: $artifact"
