@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.2.10
+
+- Added `pip check` to the installed-artifact e2e smoke so wheel and sdist installs must have consistent dependency metadata.
+
 ## 0.2.9
 
 - Added a generated `journey-install-requirements.txt` release artifact for hash-verified wheel installs.

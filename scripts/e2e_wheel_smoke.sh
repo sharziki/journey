@@ -17,6 +17,7 @@ trap 'rm -rf "$tmpdir"' EXIT
 python -m venv "$tmpdir/venv"
 "$tmpdir/venv/bin/python" -m pip install --upgrade pip >/dev/null
 "$tmpdir/venv/bin/python" -m pip install "$artifact" >/dev/null
+"$tmpdir/venv/bin/python" -m pip check
 "$tmpdir/venv/bin/journey" --version | grep -E '^journey [0-9]+\.[0-9]+\.[0-9]+'
 "$tmpdir/venv/bin/python" -m journey --version | grep -E '^journey [0-9]+\.[0-9]+\.[0-9]+'
 "$tmpdir/venv/bin/python" -c 'import importlib.metadata, journey; assert journey.__version__ == importlib.metadata.version("journey-lang")'
