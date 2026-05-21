@@ -443,10 +443,11 @@ The best contributions right now are examples that make Journey more general.
 
 Good first PRs:
 
-1. Add a `.journey` file for a real workflow.
-2. Run `journey test examples/your_file.journey --clean`.
-3. If it fails, improve the parser, validator, or codegen without deleting acceptance coverage.
-4. Add the example to this README.
+1. Add a lightweight `.journey` graph for a real app structure.
+2. Add a structured `.journey` file for a real backend workflow.
+3. Run `journey doctor`, `journey diff --check`, or `journey test` depending on the example type.
+4. If it fails, improve the graph scanner, validator, or adapter without deleting acceptance coverage.
+5. Add the example to this README.
 
 Useful example areas:
 
@@ -462,7 +463,13 @@ Useful example areas:
 
 ```bash
 python -m pytest
-for f in examples/*.journey; do journey test "$f" --clean; done
+journey validate examples/lightweight_client_portal
+journey doctor examples/lightweight_client_portal
+journey diff examples/lightweight_client_portal --check
+for f in examples/*.journey; do
+  journey validate "$f" --strict
+  journey test "$f" --robustness strict --clean
+done
 python -m build
 python -m twine check dist/*
 ```
