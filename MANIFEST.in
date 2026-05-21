@@ -2,5 +2,6 @@ include README.md
 include LICENSE
 include CHANGELOG.md
 include CONTRIBUTING.md
+recursive-include scripts *.sh
 recursive-include examples *.journey *.md *.tsx *.ts
 recursive-include docs/assets *.png *.svg

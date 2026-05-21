@@ -39,6 +39,8 @@ jobs:
         run: |
           python -m build
           python -m twine check dist/*
+      - name: Wheel install e2e
+        run: scripts/e2e_wheel_smoke.sh
       - name: Upload dist artifact
         uses: actions/upload-artifact@v7
         with:

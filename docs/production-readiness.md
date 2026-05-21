@@ -50,6 +50,7 @@ library_borrowing/test_journey.py::TestMemberBorrowsAndReturnsABook::test_member
 - `journey diff examples/lightweight_client_portal --check`
 - strict validation and generated acceptance tests for every `examples/*.journey`
 - clean install from the public `v0.2.2` GitHub release wheel
+- built-wheel smoke test via `scripts/e2e_wheel_smoke.sh`
 - `python -m build`
 - `python -m twine check dist/*`
 
