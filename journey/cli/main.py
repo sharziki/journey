@@ -312,6 +312,36 @@ def cmd_doctor(args):
         sys.exit(1)
 
 
+def cmd_diff(args):
+    """Show drift between the project tree and lightweight Journey graph."""
+    from ..core.doctor import doctor_journey
+
+    issues = doctor_journey(args.file or ".")
+    drift_codes = {
+        "missing_child",
+        "missing_parent",
+        "missing_journey",
+        "orphan_journey",
+        "stale_source",
+        "unloaded_child",
+    }
+    drift = [issue for issue in issues if issue.code in drift_codes]
+    if not drift:
+        print("Journey diff: no drift")
+        return
+
+    print("Journey diff:")
+    for issue in drift:
+        marker = _diff_marker(issue.code)
+        print(f"{marker} {issue.code}: {issue.message}")
+        print(f"  {issue.path}")
+    print()
+    print("Suggested next step:")
+    print(f"  journey sync {args.file or '.'}")
+    if getattr(args, "check", False):
+        sys.exit(1)
+
+
 def cmd_agent(args):
     """Prepare and verify a journey for coding agents."""
     source = args.file
@@ -699,6 +729,16 @@ def _contains_mapping_key(text: str, key: str) -> bool:
     return bool(re.search(rf"^\s*{re.escape(key)}\s*:", text, re.MULTILINE))
 
 
+def _diff_marker(code: str) -> str:
+    if code == "missing_journey":
+        return "+"
+    if code in {"missing_child", "missing_parent", "stale_source", "unloaded_child"}:
+        return "-"
+    if code == "orphan_journey":
+        return "?"
+    return "!"
+
+
 def _print_watch_dashboard(journey_name: str, checklist: list[str], completed: set[str], current_index: int | None):
     width = 78
     print()
@@ -805,6 +845,11 @@ def main():
     p_doctor.add_argument("file", nargs="?", help="Path to a project directory or Journey graph")
     p_doctor.add_argument("--strict", action="store_true", help="Exit non-zero on warnings")
 
+    # diff
+    p_diff = sub.add_parser("diff", help="Show drift between code files and linked Journey files")
+    p_diff.add_argument("file", nargs="?", help="Path to a project directory or Journey graph")
+    p_diff.add_argument("--check", action="store_true", help="Exit non-zero when drift is found")
+
     # agent
     p_agent = sub.add_parser("agent", help="Prepare a journey for an AI coding agent")
     p_agent.add_argument("file", help="Path to .journey file")
@@ -857,6 +902,8 @@ def main():
         cmd_sync(args)
     elif args.command == "doctor":
         cmd_doctor(args)
+    elif args.command == "diff":
+        cmd_diff(args)
     elif args.command == "agent":
         cmd_agent(args)
     elif args.command == "watch":

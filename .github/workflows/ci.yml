@@ -31,6 +31,7 @@ jobs:
           journey sync "$tmpdir" --name "Smoke App"
           journey validate "$tmpdir"
           journey doctor "$tmpdir"
+          journey diff "$tmpdir" --check
           journey manifest "$tmpdir" -o "$tmpdir/handoff"
           journey agent "$tmpdir" --no-test -o "$tmpdir/agent"
       - name: Validate examples

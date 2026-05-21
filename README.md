@@ -51,6 +51,7 @@ When files change, rescan without overwriting edited journey specs:
 ```bash
 journey sync .
 journey doctor .
+journey diff .
 ```
 
 For the optional FastAPI backend adapter, run:
@@ -273,6 +274,7 @@ journey watch product.journey \
 | `journey create [path]` | Create linked repo/page journeys, or write a route and feature flow document for an existing `.journey` |
 | `journey sync [path]` | Rescan a project and add missing page/API journeys without overwriting edited specs |
 | `journey doctor [path]` | Check graph health: missing links, orphan journeys, stale sources, missing specs, and acceptance gaps |
+| `journey diff [path]` | Show drift between code files and linked Journey files, with `--check` for CI |
 | `journey execute <file> --autonomous` | Run the deliverable-by-deliverable builder/QA loop with a local agent runtime |
 | `journey watch <file>` | Lower-level watch loop for custom agent commands |
 | `journey compile <file>` | Optional adapter: generate a FastAPI project |
@@ -364,6 +366,7 @@ Working today:
 - folder-level agent handoffs with no database or runtime requirement
 - graph-aware `inspect` and `validate` commands for linked journeys
 - `doctor` health checks for missing links, orphan journeys, stale sources, missing specs, and acceptance gaps
+- `diff` for readable code-vs-journey drift
 - structured `.journey` syntax
 - parser and semantic validation
 - FastAPI backend generation
@@ -376,6 +379,7 @@ Working today:
 - `create` for linked folder-level journeys and existing-journey flow documents
 - `sync` for adding newly discovered page/API journeys without overwriting edited specs
 - `doctor` for checking whether the lightweight journey map is healthy
+- `diff` for showing journey drift without changing files
 
 Still early:
 

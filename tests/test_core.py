@@ -8,6 +8,7 @@ from journey.cli.main import (
     _autonomous_agent_command,
     cmd_agent,
     cmd_create,
+    cmd_diff,
     cmd_doctor,
     cmd_execute,
     cmd_inspect,
@@ -383,6 +384,55 @@ def test_doctor_strict_exits_on_warnings(tmp_path):
 
     with pytest.raises(SystemExit) as exc:
         cmd_doctor(Namespace(file=str(tmp_path), strict=True))
+
+    assert exc.value.code == 1
+
+
+def test_diff_reports_no_drift_for_synced_graph(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    capsys.readouterr()
+
+    cmd_diff(Namespace(file=str(tmp_path), check=False))
+
+    assert capsys.readouterr().out.strip() == "Journey diff: no drift"
+
+
+def test_diff_reports_drift_and_suggests_sync(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    (tmp_path / ".journey" / "pages" / "orphan.journey").write_text(
+        'journey "Orphan"\n\nlevel: page\nsource: ../../app/orphan/page.tsx\nacceptance:\n  - ok\n'
+    )
+    page = tmp_path / ".journey" / "pages" / "dashboard.journey"
+    page.write_text(page.read_text().replace("source: ../../app/dashboard/page.tsx", "source: ../../app/missing/page.tsx"))
+    settings_page = tmp_path / "app" / "settings" / "page.tsx"
+    settings_page.parent.mkdir(parents=True)
+    settings_page.write_text("export default function Settings() { return null }\n")
+    capsys.readouterr()
+
+    cmd_diff(Namespace(file=str(tmp_path), check=False))
+
+    output = capsys.readouterr().out
+    assert "+ missing_journey" in output
+    assert "- stale_source" in output
+    assert "? orphan_journey" in output
+    assert f"journey sync {tmp_path}" in output
+
+
+def test_diff_check_exits_when_drift_exists(tmp_path):
+    journey_dir = tmp_path / ".journey"
+    journey_dir.mkdir()
+    (journey_dir / "repo.journey").write_text(
+        'journey "Broken App"\n\nlevel: repo\n\nchildren:\n  - ./pages/missing.journey\n'
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cmd_diff(Namespace(file=str(tmp_path), check=True))
 
     assert exc.value.code == 1
 
