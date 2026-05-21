@@ -18,6 +18,7 @@
   <a href="#before-journey--after-journey">Before/After</a> &bull;
   <a href="#demo">Demo</a> &bull;
   <a href="#examples">Examples</a> &bull;
+  <a href="docs/production-readiness.md">Production Readiness</a> &bull;
   <a href="#adapters-roadmap">Adapters</a> &bull;
   <a href="#contributing">Contributing</a>
 </p>
@@ -31,6 +32,8 @@ Journey is a small open-source CLI for mapping product intent in `.journey` file
 Core Journey is lightweight: it creates, links, validates, and summarizes repo/page/API journeys without requiring a database, server, framework, or generated app.
 
 Adapters are optional. The first adapter compiles structured backend journeys into a working FastAPI app with SQLAlchemy models, Pydantic schemas, route handlers, generated pytest acceptance tests, and agent-readable handoff files.
+
+Current production-ready beta: [`v0.2.2`](https://github.com/sharziki/journey/releases/tag/v0.2.2). See [production readiness](docs/production-readiness.md) for the verified e2e release checks and install path.
 
 The bigger idea is simple: agents should not start from scattered prompts. They should read the project spine, build against it, test against it, and repair drift when the code no longer matches the story.
 
