@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.9
+
+- Added a generated `journey-install-requirements.txt` release artifact for hash-verified wheel installs.
+- Added CI and release workflow generation for the hash-verified install file.
+
 ## 0.2.8
 
 - Added release artifact SHA256 checksum generation and verification in CI and the release workflow.
