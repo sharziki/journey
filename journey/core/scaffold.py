@@ -167,7 +167,7 @@ def _candidate_from_path(path: Path, project: Path) -> JourneyCandidate | None:
         name = " ".join(parts) if parts else "API"
         return JourneyCandidate(_title(name), "api", rel)
     if _under_page_dir(rel) and path.suffix.lower() in PAGE_SUFFIXES:
-        return JourneyCandidate(_title(path.stem), "page", rel)
+        return JourneyCandidate(_title(_route_name_from_path(rel)), "page", rel)
     return None
 
 
@@ -546,31 +546,57 @@ def _route_from_candidate(candidate: JourneyCandidate) -> str:
         parts = parts[:-1]
     elif source.suffix.lower() in PAGE_SUFFIXES:
         parts = list(source.with_suffix("").parts)
-    if parts and parts[0] == "src":
-        parts = parts[1:]
-    if parts and parts[0] in {"app", "pages", "routes"}:
+    while parts and parts[0] in {"src", "app", "pages", "routes"}:
         parts = parts[1:]
     if candidate.level == "api" and parts and parts[0] != "api":
         parts.insert(0, "api")
     if candidate.level == "page" and parts and parts[-1] == "index":
         parts = parts[:-1]
-    route_parts = [
-        _route_segment(part)
-        for part in parts
-        if part not in {"page", "route"} and not (part.startswith("(") and part.endswith(")"))
-    ]
+    route_parts = []
+    for part in parts:
+        if part in {"page", "route"} or (part.startswith("(") and part.endswith(")")):
+            continue
+        route_parts.extend(_route_segment(part))
     route = "/" + "/".join(part for part in route_parts if part)
     return route.rstrip("/") or "/"
 
 
-def _route_segment(part: str) -> str:
+def _route_segment(part: str) -> tuple[str, ...]:
+    if part in {"index", "_index"}:
+        return ()
     if part.startswith("[[...") and part.endswith("]]"):
-        return f"*{part[5:-2]}"
+        return (f"*{part[5:-2]}",)
     if part.startswith("[...") and part.endswith("]"):
-        return f"*{part[4:-1]}"
+        return (f"*{part[4:-1]}",)
     if part.startswith("[") and part.endswith("]"):
-        return f":{part[1:-1]}"
-    return part
+        return (f":{part[1:-1]}",)
+    segments = []
+    for segment in part.split("."):
+        if not segment or segment in {"index", "_index"}:
+            continue
+        if segment.startswith("$") and len(segment) > 1:
+            segments.append(f":{segment[1:]}")
+        else:
+            segments.append(segment.lstrip("_"))
+    return tuple(segments)
+
+
+def _route_name_from_path(path: Path) -> str:
+    words = []
+    for segment in path.stem.split("."):
+        if not segment:
+            continue
+        segment = segment.lstrip("_")
+        if segment.startswith("$"):
+            segment = segment[1:]
+        words.extend(_split_words(segment))
+    return " ".join(words) or path.stem
+
+
+def _split_words(value: str) -> list[str]:
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", value)
+    value = value.replace("-", " ").replace("_", " ")
+    return [part for part in value.split() if part]
 
 
 def _project_name(project: Path) -> str:

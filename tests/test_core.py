@@ -290,6 +290,24 @@ def test_create_command_treats_dotted_existing_path_as_directory(tmp_path):
     assert (project / ".journey" / "pages" / "dashboard.journey").exists()
 
 
+def test_create_command_normalizes_flat_router_paths(tmp_path):
+    index_page = tmp_path / "app" / "routes" / "_index.tsx"
+    detail_page = tmp_path / "app" / "routes" / "dashboard.$leadId.tsx"
+    index_page.parent.mkdir(parents=True)
+    index_page.write_text("export default function Index() { return null }\n")
+    detail_page.write_text("export default function LeadDetail() { return null }\n")
+
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Flat App", force=False))
+
+    flow = (tmp_path / ".journey" / "JOURNEY_FLOW.md").read_text()
+    assert "| page | `/` | `./pages/index.journey` | `app/routes/_index.tsx` |" in flow
+    assert (
+        "| page | `/dashboard/:leadId` | `./pages/dashboard-lead-id.journey` | `app/routes/dashboard.$leadId.tsx` |"
+        in flow
+    )
+    assert "1. **Dashboard Lead Id** (`/dashboard/:leadId`)" in flow
+
+
 def test_agent_command_uses_lightweight_graph_for_folder_journeys(tmp_path):
     app_page = tmp_path / "app" / "dashboard" / "page.tsx"
     app_page.parent.mkdir(parents=True)
