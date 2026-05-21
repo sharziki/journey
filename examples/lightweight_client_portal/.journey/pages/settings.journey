@@ -2,6 +2,7 @@ journey "Lightweight Client Portal / Settings"
 
 parent: ../repo.journey
 level: page
+route: /settings
 source: ../../app/settings/page.tsx
 
 mission:

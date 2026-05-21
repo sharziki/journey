@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from journey.core.graph import GraphIssue, JourneyGraph, load_journey_graph, validate_journey_graph
-from journey.core.scaffold import detect_candidates
+from journey.core.scaffold import _route_from_candidate, detect_candidates
 
 
 def doctor_journey(source: str | Path) -> tuple[GraphIssue, ...]:
@@ -16,6 +16,7 @@ def doctor_journey(source: str | Path) -> tuple[GraphIssue, ...]:
     issues.extend(_missing_candidate_issues(project, graph))
     issues.extend(_orphan_journey_issues(project, graph))
     issues.extend(_stale_source_issues(project, graph))
+    issues.extend(_stale_route_issues(project, graph))
     issues.extend(_missing_acceptance_issues(graph))
     return tuple(issues)
 
@@ -74,6 +75,32 @@ def _stale_source_issues(project: Path, graph: JourneyGraph) -> list[GraphIssue]
                     code="stale_source",
                     path=str(node.path),
                     message=f"Journey source file no longer exists: {source.relative_to(project)}",
+                )
+            )
+    return issues
+
+
+def _stale_route_issues(project: Path, graph: JourneyGraph) -> list[GraphIssue]:
+    routes_by_source = {
+        (project / candidate.source).resolve(): _route_from_candidate(candidate)
+        for candidate in detect_candidates(project)
+        if candidate.source is not None
+    }
+    issues = []
+    for node in graph.nodes:
+        if node.level not in {"page", "api"}:
+            continue
+        source = _source_path(project, node)
+        if source is None or source not in routes_by_source:
+            continue
+        expected = routes_by_source[source]
+        if node.route != expected:
+            issues.append(
+                GraphIssue(
+                    severity="warning",
+                    code="stale_route",
+                    path=str(node.path),
+                    message=f"Journey route is `{node.route or 'missing'}` but source maps to `{expected}`",
                 )
             )
     return issues

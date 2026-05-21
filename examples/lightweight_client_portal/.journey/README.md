@@ -1,6 +1,7 @@
 # Lightweight Client Portal Journey Map
 
 - Repo journey: `repo.journey`
+- Flow document: `JOURNEY_FLOW.md`
 
 ## Journeys
 

@@ -322,6 +322,7 @@ def cmd_diff(args):
         "missing_parent",
         "missing_journey",
         "orphan_journey",
+        "stale_route",
         "stale_source",
         "unloaded_child",
     }
@@ -372,7 +373,8 @@ def cmd_status(args):
     drift = [
         issue
         for issue in issues
-        if issue.code in {"missing_child", "missing_parent", "missing_journey", "orphan_journey", "stale_source", "unloaded_child"}
+        if issue.code
+        in {"missing_child", "missing_parent", "missing_journey", "orphan_journey", "stale_route", "stale_source", "unloaded_child"}
     ]
     pages_total = sum(1 for candidate in candidates if candidate.level == "page")
     apis_total = sum(1 for candidate in candidates if candidate.level == "api")
@@ -846,7 +848,7 @@ def _contains_mapping_key(text: str, key: str) -> bool:
 def _diff_marker(code: str) -> str:
     if code == "missing_journey":
         return "+"
-    if code in {"missing_child", "missing_parent", "stale_source", "unloaded_child"}:
+    if code in {"missing_child", "missing_parent", "stale_route", "stale_source", "unloaded_child"}:
         return "-"
     if code == "orphan_journey":
         return "?"

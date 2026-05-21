@@ -2,6 +2,7 @@ journey "Lightweight Client Portal / Leads API"
 
 parent: ../repo.journey
 level: api
+route: /api/leads
 source: ../../app/api/leads/route.ts
 
 mission:

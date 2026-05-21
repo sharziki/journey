@@ -2,6 +2,7 @@ journey "Lightweight Client Portal / Dashboard"
 
 parent: ../repo.journey
 level: page
+route: /dashboard
 source: ../../app/dashboard/page.tsx
 
 mission:
