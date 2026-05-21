@@ -2,6 +2,7 @@
 
 from ..parser.ast_nodes import JourneySpec, TestBlock, TestCommand
 from ..core.normalize import slugify
+from .gen_common import route_path
 
 
 def _step_class_name(name: str) -> str:
@@ -12,23 +13,6 @@ def _test_class_name(name: str) -> str:
     """Convert test name to a valid Python class name."""
     words = name.replace("-", " ").replace("_", " ").split()
     return "Test" + "".join(w.title() for w in words)
-
-
-def _route_path(step_name: str) -> str:
-    """Map step name to URL path."""
-    if "signup" in step_name:
-        return "/signup"
-    if "login" in step_name:
-        return "/login"
-    if step_name == "verify_email":
-        return "/verify-email"
-    if "create_workspace" in step_name:
-        return "/workspaces"
-    if "invite_member" in step_name:
-        return "/invitations"
-    if "accept_invite" in step_name:
-        return "/invitations/accept"
-    return f"/{step_name.replace('_', '-')}"
 
 
 def generate_tests(spec: JourneySpec) -> str:
@@ -149,7 +133,8 @@ def _gen_test_class(block: TestBlock, prefix: str, spec: JourneySpec) -> list[st
 
 def _gen_test_command(cmd: TestCommand, prefix: str, captured: dict, spec: JourneySpec) -> list[str]:
     lines = []
-    path = f"{prefix}{_route_path(cmd.step_name)}"
+    step = spec.get_step(cmd.step_name)
+    path = f"{prefix}{route_path(step) if step else '/' + cmd.step_name.replace('_', '-')}"
 
     # Build the JSON body
     json_parts = []

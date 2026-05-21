@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from argparse import Namespace
 
 import pytest
@@ -138,8 +140,67 @@ def test_fastapi_adapter_uses_shared_slug_and_enum_literals(tmp_path):
     routes = (tmp_path / "routes.py").read_text()
     tests = (tmp_path / "test_journey.py").read_text()
     assert 'prefix="/journey/crm-sales-pipeline"' in routes
-    assert '"/journey/crm-sales-pipeline/open-deal"' in tests
+    assert '"/journey/crm-sales-pipeline/deals"' in tests
     assert "stage=DealStage.discovery" in routes
+
+
+def test_fastapi_adapter_is_domain_agnostic_for_library_members(tmp_path):
+    spec = parse_string(
+        '''
+        journey "Library Borrowing" {
+          entity Member {
+            email       string unique
+            name        string
+            status      state(active -> suspended)
+            created_at  timestamp auto
+          }
+
+          step register_member {
+            actor anonymous
+            input {
+              email string required format(email)
+              name  string required
+            }
+            action {
+              member = create Member(email: input.email, name: input.name, status: active)
+            }
+            output {
+              member_id member.id
+              status    member.status
+            }
+            errors {
+              email_taken "Member already exists" 409
+            }
+          }
+
+          test "registers a member" {
+            do register_member(email: "reader@example.com", name: "Reader One")
+              expect status 201
+              capture member_id
+
+            do register_member(email: "reader@example.com", name: "Reader Two")
+              expect status 409
+          }
+        }
+        '''
+    )
+
+    output = tmp_path / "generated_app"
+    generate(spec, output)
+
+    routes = (output / "routes.py").read_text()
+    tests = (output / "test_journey.py").read_text()
+    assert "db.query(Member).filter(Member.email == body.email).first()" in routes
+    assert "db.query(User)" not in routes
+    assert '"/journey/library-borrowing/members"' in tests
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", str(output), "-q"],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_fastapi_adapter_generates_runtime_config_hooks(tmp_path):
@@ -197,7 +258,7 @@ def test_create_command_writes_route_and_feature_flow(tmp_path):
 
     flow = (tmp_path / "FLOW.md").read_text()
     assert "# User Onboarding Journey Flow" in flow
-    assert "`POST` | `/journey/user-onboarding/signup`" in flow
+    assert "`POST` | `/journey/user-onboarding/users`" in flow
     assert "## Feature Flow" in flow
     assert "### 1. signup" in flow
     assert "transition `user.status` to `active`" in flow

@@ -7,46 +7,11 @@ from ..parser.ast_nodes import (
     Step,
 )
 from ..core.normalize import slugify
-
-
-def _snake(name: str) -> str:
-    result = []
-    for i, ch in enumerate(name):
-        if ch.isupper() and i > 0:
-            result.append("_")
-        result.append(ch.lower())
-    return "".join(result)
-
-
-def _plural(name: str) -> str:
-    if name.endswith("s"):
-        return name + "es"
-    if name.endswith("y"):
-        return name[:-1] + "ies"
-    return name + "s"
+from .gen_common import authenticated_actor_entity, plural as _plural, primary_create_action, route_path as _route_path, snake as _snake
 
 
 def _step_class_name(step_name: str) -> str:
     return "".join(word.title() for word in step_name.split("_"))
-
-
-def _route_path(step: Step) -> str:
-    """Map step name to URL path."""
-    name = step.name.replace("_", "-")
-    # Heuristics for RESTful paths
-    if "signup" in step.name:
-        return "/signup"
-    if "login" in step.name:
-        return "/login"
-    if step.name == "verify_email":
-        return "/verify-email"
-    if "create_workspace" in step.name:
-        return "/workspaces"
-    if "invite_member" in step.name:
-        return "/invitations"
-    if "accept_invite" in step.name:
-        return "/invitations/accept"
-    return f"/{name}"
 
 
 def _http_method(step: Step) -> str:
@@ -92,6 +57,19 @@ def generate_routes(spec: JourneySpec) -> str:
 
     slug = slugify(spec.name)
     tag = spec.name
+    actor_entity = authenticated_actor_entity(spec)
+    actor_lookup_lines = (
+        [
+            f"    actor = db.query({actor_entity}).filter({actor_entity}.id == session[\"actor_id\"]).first()",
+            '    if not actor:',
+            f'        raise HTTPException(status_code=401, detail="{actor_entity} not found")',
+            '    return actor',
+        ]
+        if actor_entity
+        else [
+            '    raise HTTPException(status_code=401, detail="No authenticated actor entity configured")',
+        ]
+    )
 
     lines = [
         '"""',
@@ -139,11 +117,7 @@ def generate_routes(spec: JourneySpec) -> str:
         '    if session["expires_at"] <= datetime.now(timezone.utc):',
         "        _sessions.pop(token, None)",
         '        raise HTTPException(status_code=401, detail="Invalid or expired token")',
-        '    from .models import User',
-        '    user = db.query(User).filter(User.id == session["user_id"]).first()',
-        '    if not user:',
-        '        raise HTTPException(status_code=401, detail="User not found")',
-        '    return user',
+        *actor_lookup_lines,
         "",
     ]
 
@@ -206,10 +180,11 @@ def _gen_error_check(error, step, spec) -> list[str]:
     """Generate error check code based on error semantics."""
     lines = []
 
-    if error.code_name == "email_taken":
-        # Check for duplicate email
+    duplicate_check = _duplicate_check(error, step, spec)
+    if duplicate_check:
+        entity_name, field_name, input_name = duplicate_check
         lines.extend([
-            "    existing = db.query(User).filter(User.email == body.email).first()",
+            f"    existing = db.query({entity_name}).filter({entity_name}.{field_name} == body.{input_name}).first()",
             "    if existing:",
             f'        raise HTTPException(status_code={error.http_status}, detail="{error.message}")',
         ])
@@ -232,6 +207,28 @@ def _gen_error_check(error, step, spec) -> list[str]:
     # Other errors are checked inline during action generation
 
     return lines
+
+
+def _duplicate_check(error, step: Step, spec: JourneySpec) -> tuple[str, str, str] | None:
+    code = error.code_name.lower()
+    if not any(marker in code for marker in ("taken", "duplicate", "exists", "already")):
+        return None
+    create_action = primary_create_action(step)
+    if not create_action or not create_action.target:
+        return None
+    entity = spec.get_entity(create_action.target)
+    if not entity:
+        return None
+    for field in entity.fields:
+        if not field.modifiers.unique:
+            continue
+        value = create_action.params.get(field.name)
+        if not value or not value.startswith("input."):
+            continue
+        input_name = value.split(".", 1)[1]
+        if field.name.lower() in code or any(marker in code for marker in ("duplicate", "exists", "already")):
+            return entity.name, field.name, input_name
+    return None
 
 
 def _gen_action(action: Action, step: Step, spec: JourneySpec, variables: dict) -> list[str]:
@@ -425,10 +422,12 @@ def _gen_verify_action(action: Action, step: Step, spec: JourneySpec, variables:
         # Check for account_pending error
         # Derive the variable name from the stored_hash expression
         entity_var = stored_hash.split(".")[0]
+        entity_name = variables.get(entity_var, "User")
+        status_enum = f"{entity_name}Status"
         for e in step.errors:
             if "pending" in e.code_name:
                 lines.extend([
-                    f"    if {entity_var}.status == UserStatus.pending:",
+                    f"    if {entity_var}.status == {status_enum}.pending:",
                     f'        raise HTTPException(status_code={e.http_status}, detail="{e.message}")',
                 ])
 
@@ -445,7 +444,7 @@ def _gen_call_action(action: Action, step: Step, spec: JourneySpec, variables: d
         lines.extend([
             f"    token = uuid4().hex",
             f"    expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)",
-            f'    _sessions[token] = {{"user_id": {user_var}.id, "expires_at": expires}}',
+            f'    _sessions[token] = {{"actor_id": {user_var}.id, "expires_at": expires}}',
         ])
         # Store synthetic variable for output mapping
         variables[var] = "_session"

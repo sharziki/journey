@@ -9,6 +9,7 @@
 - Improved flat-file route normalization for Remix/React Router-style files such as `_index.tsx` and `dashboard.$id.tsx`.
 - Made `journey sync` refresh child journey metadata without overwriting hand-edited journey content.
 - Made `journey doctor` and `journey diff --check` report stale route metadata.
+- Removed FastAPI route generation assumptions tied to the auth example: create routes now derive from the created entity, duplicate checks use the target entity's unique field, and auth sessions resolve the authenticated actor entity.
 
 ## 0.2.0
 

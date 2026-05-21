@@ -97,7 +97,7 @@ def test_cli_generates_tests_and_serves_a_backend(tmp_path):
     try:
         openapi = _wait_for_openapi(port, server)
         assert openapi["info"]["title"] == "Smoke E2E"
-        assert "/journey/smoke-e2-e/capture-lead" in openapi["paths"]
+        assert "/journey/smoke-e2-e/leads" in openapi["paths"]
         assert "/journey/smoke-e2-e/contact-lead" in openapi["paths"]
     finally:
         server.terminate()
