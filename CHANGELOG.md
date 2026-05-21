@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.2
+
+- Removed automatic PyPI publishing from the release workflow until PyPI Trusted Publishing is configured for this repository.
+- Documented GitHub release wheel installation as the production install path for the beta.
+
 ## 0.2.1
 
 - Added `JOURNEY_FLOW.md` generation for lightweight folder journeys so `journey create .` and `journey sync .` produce a single route, feature, source, and acceptance walkthrough.

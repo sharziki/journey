@@ -39,10 +39,12 @@ The bigger idea is simple: agents should not start from scattered prompts. They 
 Install Journey, then create a lightweight journey map for any repo:
 
 ```bash
-python -m pip install journey-lang
+python -m pip install https://github.com/sharziki/journey/releases/download/v0.2.2/journey_lang-0.2.2-py3-none-any.whl
 journey create .
 journey status .
 ```
+
+PyPI publishing is prepared in the packaging metadata, but the current beta install path is the signed GitHub release artifact until PyPI Trusted Publishing is configured for this repository.
 
 For local development from this repo:
 
@@ -393,7 +395,7 @@ journey/
 
 ## Status
 
-Journey is v0.2.1 beta. The core lightweight journey graph workflow and FastAPI adapter are usable today, with CI covering unit tests, shipped examples, generated acceptance tests, package builds, and release artifacts.
+Journey is v0.2.2 beta. The core lightweight journey graph workflow and FastAPI adapter are usable today, with CI covering unit tests, shipped examples, generated acceptance tests, package builds, and release artifacts.
 
 Working today:
 

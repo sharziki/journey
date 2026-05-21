@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   build-release:
@@ -51,6 +50,3 @@ jobs:
         with:
           body_path: .github/releases/${{ github.ref_name }}.md
           files: dist/*
-      - name: Publish to PyPI
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: pypa/gh-action-pypi-publish@release/v1
