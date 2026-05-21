@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.5
+
+- Kept generated FastAPI apps standalone by baking the Journey compiler version into generated `app.py` instead of importing `journey` at app runtime.
+- Added e2e coverage to ensure generated apps expose the package version without depending on the Journey package import.
+
 ## 0.2.4
 
 - Fixed package version reporting so `journey.__version__` is derived from installed package metadata instead of a stale hardcoded value.

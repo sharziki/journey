@@ -33,7 +33,7 @@ Core Journey is lightweight: it creates, links, validates, and summarizes repo/p
 
 Adapters are optional. The first adapter compiles structured backend journeys into a working FastAPI app with SQLAlchemy models, Pydantic schemas, route handlers, generated pytest acceptance tests, and agent-readable handoff files.
 
-Current production-ready beta: [`v0.2.4`](https://github.com/sharziki/journey/releases/tag/v0.2.4). See [production readiness](docs/production-readiness.md) for the verified e2e release checks and install path.
+Current production-ready beta: [`v0.2.5`](https://github.com/sharziki/journey/releases/tag/v0.2.5). See [production readiness](docs/production-readiness.md) for the verified e2e release checks and install path.
 
 The bigger idea is simple: agents should not start from scattered prompts. They should read the project spine, build against it, test against it, and repair drift when the code no longer matches the story.
 
@@ -42,7 +42,7 @@ The bigger idea is simple: agents should not start from scattered prompts. They 
 Install Journey, then create a lightweight journey map for any repo:
 
 ```bash
-python -m pip install https://github.com/sharziki/journey/releases/download/v0.2.4/journey_lang-0.2.4-py3-none-any.whl
+python -m pip install https://github.com/sharziki/journey/releases/download/v0.2.5/journey_lang-0.2.5-py3-none-any.whl
 journey create .
 journey status .
 ```
@@ -398,7 +398,7 @@ journey/
 
 ## Status
 
-Journey is v0.2.4 beta. The core lightweight journey graph workflow and FastAPI adapter are usable today, with CI covering unit tests, shipped examples, generated acceptance tests, package builds, installed-wheel e2e, and release artifacts.
+Journey is v0.2.5 beta. The core lightweight journey graph workflow and FastAPI adapter are usable today, with CI covering unit tests, shipped examples, generated acceptance tests, package builds, installed-wheel e2e, and release artifacts.
 
 Working today:
 

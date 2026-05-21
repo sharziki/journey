@@ -79,6 +79,9 @@ def test_cli_generates_tests_and_serves_a_backend(tmp_path):
     _run_cli(["validate", str(source), "--strict"], tmp_path, env)
     _run_cli(["test", str(source), "--clean", "--robustness", "strict"], tmp_path, env)
     _run_cli(["compile", str(source), "--clean", "--robustness", "strict"], tmp_path, env)
+    app_source = (tmp_path / "generated" / "smoke_e2e" / "app.py").read_text()
+    assert "from journey import" not in app_source
+    assert f'version="{journey.__version__}"' in app_source
 
     port = _free_port()
     server = subprocess.Popen(

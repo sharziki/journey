@@ -1,5 +1,7 @@
 """Generate FastAPI app.py entrypoint."""
 
+from journey import __version__ as journey_version
+
 from ..parser.ast_nodes import JourneySpec
 
 
@@ -23,8 +25,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from journey import __version__ as journey_version
-
 from .database import init_db
 from .routes import router
 
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="{spec.name}",
     description="{spec.description or ""}",
-    version=journey_version,
+    version="{journey_version}",
     lifespan=lifespan,
 )
 

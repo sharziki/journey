@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "journey-lang"
-version = "0.2.4"
+version = "0.2.5"
 description = "Journey maps repo, page, API, and acceptance intent into lightweight files that coding agents can read, validate, and repair against."
 readme = "README.md"
 requires-python = ">=3.11"
