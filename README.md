@@ -57,7 +57,7 @@ That writes a linked `.journey` graph:
 └── README.md
 ```
 
-`JOURNEY_FLOW.md` is the single read-through document: route map, linked journeys, source files, feature flow, and acceptance outline.
+`JOURNEY_FLOW.md` is the single read-through document: route map, linked journeys, source files, feature flow, and acceptance outline. When source files are present, Journey also lifts obvious signals like buttons, links, API calls, route methods, and response statuses into the generated docs.
 
 Then use the graph:
 

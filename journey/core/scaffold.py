@@ -23,6 +23,7 @@ API_MARKERS = {
 
 PAGE_SUFFIXES = {".html", ".jsx", ".tsx", ".vue", ".svelte"}
 SKIP_DIRS = {".git", ".journey", ".next", ".nuxt", ".venv", "__pycache__", "dist", "generated", "node_modules"}
+HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,17 @@ class JourneyCandidate:
     @property
     def child_path(self) -> str:
         return f"./{self.level}s/{self.slug}.journey"
+
+
+@dataclass(frozen=True)
+class SourceSignals:
+    api_calls: tuple[str, ...] = ()
+    actions: tuple[str, ...] = ()
+    links: tuple[str, ...] = ()
+    states: tuple[str, ...] = ()
+    methods: tuple[str, ...] = ()
+    request_hints: tuple[str, ...] = ()
+    response_hints: tuple[str, ...] = ()
 
 
 def scaffold_journeys(
@@ -72,7 +84,7 @@ def scaffold_journeys(
         candidate_dir = out / f"{candidate.level}s"
         candidate_dir.mkdir(parents=True, exist_ok=True)
         path = candidate_dir / f"{candidate.slug}.journey"
-        _write_once(path, _render_child_journey(title, candidate), force=force)
+        _write_once(path, _render_child_journey(title, candidate, project), force=force)
         written.append(str(path))
 
     index_path = out / "README.md"
@@ -80,7 +92,7 @@ def scaffold_journeys(
     written.append(str(index_path))
 
     flow_path = out / flow_filename
-    _write_once(flow_path, _render_flow_document(title, candidates), force=force)
+    _write_once(flow_path, _render_flow_document(title, candidates, project), force=force)
     written.append(str(flow_path))
 
     return ScaffoldResult(root=str(out), files=tuple(written))
@@ -118,7 +130,7 @@ def sync_journeys(
         candidate_dir = out / f"{candidate.level}s"
         candidate_dir.mkdir(parents=True, exist_ok=True)
         path = candidate_dir / f"{candidate.slug}.journey"
-        _write_once(path, _render_child_journey(title, candidate), force=force)
+        _write_once(path, _render_child_journey(title, candidate, project), force=force)
         written.append(str(path))
 
     index_path = out / "README.md"
@@ -126,7 +138,7 @@ def sync_journeys(
     written.append(str(index_path))
 
     flow_path = out / flow_filename
-    flow_path.write_text(_render_flow_document(title, candidates))
+    flow_path.write_text(_render_flow_document(title, candidates, project))
     written.append(str(flow_path))
 
     return ScaffoldResult(root=str(out), files=tuple(written))
@@ -218,15 +230,16 @@ def _render_repo_journey(title: str, candidates: list[JourneyCandidate]) -> str:
     return "\n".join(lines)
 
 
-def _render_child_journey(title: str, candidate: JourneyCandidate) -> str:
+def _render_child_journey(title: str, candidate: JourneyCandidate, project: Path) -> str:
     source = f"source: ../../{candidate.source.as_posix()}" if candidate.source else "source: unknown"
+    signals = _source_signals(project, candidate)
     if candidate.level == "api":
-        return _render_api_journey(title, candidate, source)
-    return _render_page_journey(title, candidate, source)
+        return _render_api_journey(title, candidate, source, signals)
+    return _render_page_journey(title, candidate, source, signals)
 
 
-def _render_page_journey(title: str, page: JourneyCandidate, source: str) -> str:
-    return "\n".join([
+def _render_page_journey(title: str, page: JourneyCandidate, source: str, signals: SourceSignals) -> str:
+    lines = [
         f'journey "{title} / {page.name}"',
         "",
         "parent: ../repo.journey",
@@ -242,12 +255,23 @@ def _render_page_journey(title: str, page: JourneyCandidate, source: str) -> str
         f"    Explain the job this page performs in the product journey.",
         "",
         "  user sees:",
-        "    - primary information needed on this page",
-        "    - primary actions available from this page",
-        "    - loading, empty, and error states where relevant",
-        "",
-        "  rules:",
-        "    - document business rules, permissions, validation, and state changes here",
+    ]
+    if signals.actions:
+        lines.extend(f"    - action `{action}`" for action in signals.actions)
+    else:
+        lines.append("    - primary actions available from this page")
+    if signals.links:
+        lines.extend(f"    - link to `{link}`" for link in signals.links)
+    if signals.states:
+        lines.extend(f"    - {state} state" for state in signals.states)
+    else:
+        lines.append("    - loading, empty, and error states where relevant")
+    lines.extend(["", "  rules:"])
+    if signals.api_calls:
+        lines.extend(f"    - calls `{api_call}`" for api_call in signals.api_calls)
+    else:
+        lines.append("    - document business rules, permissions, validation, and state changes here")
+    lines.extend([
         "",
         "  acceptance:",
         f"    - {page.name} supports its intended user flow",
@@ -260,10 +284,11 @@ def _render_page_journey(title: str, page: JourneyCandidate, source: str) -> str
         "  - unresolved product questions are listed explicitly",
         "",
     ])
+    return "\n".join(lines)
 
 
-def _render_api_journey(title: str, api: JourneyCandidate, source: str) -> str:
-    return "\n".join([
+def _render_api_journey(title: str, api: JourneyCandidate, source: str, signals: SourceSignals) -> str:
+    lines = [
         f'journey "{title} / {api.name} API"',
         "",
         "parent: ../repo.journey",
@@ -279,10 +304,19 @@ def _render_api_journey(title: str, api: JourneyCandidate, source: str) -> str:
         f"    Explain the job this API performs in the product journey.",
         "",
         "  request:",
-        "    - document required inputs, params, headers, auth, and validation",
-        "",
-        "  response:",
-        "    - document success shape, status, and important error states",
+    ]
+    if signals.methods:
+        lines.extend(f"    - method `{method}`" for method in signals.methods)
+    if signals.request_hints:
+        lines.extend(f"    - {hint}" for hint in signals.request_hints)
+    if not signals.methods and not signals.request_hints:
+        lines.append("    - document required inputs, params, headers, auth, and validation")
+    lines.extend(["", "  response:"])
+    if signals.response_hints:
+        lines.extend(f"    - {hint}" for hint in signals.response_hints)
+    else:
+        lines.append("    - document success shape, status, and important error states")
+    lines.extend([
         "",
         "  rules:",
         "    - document business rules, permissions, validation, and state changes here",
@@ -298,6 +332,7 @@ def _render_api_journey(title: str, api: JourneyCandidate, source: str) -> str:
         "  - unresolved product questions are listed explicitly",
         "",
     ])
+    return "\n".join(lines)
 
 
 def _render_index(title: str, root_path: Path, candidates: list[JourneyCandidate]) -> str:
@@ -317,7 +352,7 @@ def _render_index(title: str, root_path: Path, candidates: list[JourneyCandidate
     return "\n".join(lines)
 
 
-def _render_flow_document(title: str, candidates: list[JourneyCandidate]) -> str:
+def _render_flow_document(title: str, candidates: list[JourneyCandidate], project: Path) -> str:
     pages = [candidate for candidate in candidates if candidate.level == "page"]
     apis = [candidate for candidate in candidates if candidate.level == "api"]
     lines = [
@@ -351,22 +386,32 @@ def _render_flow_document(title: str, candidates: list[JourneyCandidate]) -> str
         lines.append("")
         for index, page in enumerate(pages, start=1):
             route = _route_from_candidate(page)
+            signals = _source_signals(project, page)
             lines.extend([
                 f"{index}. **{page.name}** (`{route}`)",
                 f"   - Journey: `{page.child_path}`",
                 "   - Captures visible states, primary actions, rules, and page-level acceptance.",
             ])
+            if signals.actions:
+                lines.append(f"   - Actions: {', '.join(f'`{action}`' for action in signals.actions)}")
+            if signals.api_calls:
+                lines.append(f"   - Calls: {', '.join(f'`{api_call}`' for api_call in signals.api_calls)}")
         lines.append("")
     if apis:
         lines.append("### APIs")
         lines.append("")
         for index, api in enumerate(apis, start=1):
             route = _route_from_candidate(api)
+            signals = _source_signals(project, api)
             lines.extend([
                 f"{index}. **{api.name} API** (`{route}`)",
                 f"   - Journey: `{api.child_path}`",
                 "   - Captures caller intent, request shape, response shape, side effects, and API-level acceptance.",
             ])
+            if signals.methods:
+                lines.append(f"   - Methods: {', '.join(f'`{method}`' for method in signals.methods)}")
+            if signals.response_hints:
+                lines.append(f"   - Responses: {', '.join(signals.response_hints)}")
         lines.append("")
 
     lines.extend([
@@ -386,6 +431,110 @@ def _render_flow_document(title: str, candidates: list[JourneyCandidate]) -> str
         "",
     ])
     return "\n".join(lines)
+
+
+def _source_signals(project: Path, candidate: JourneyCandidate) -> SourceSignals:
+    if not candidate.source:
+        return SourceSignals()
+    path = project / candidate.source
+    if not path.exists() or not path.is_file():
+        return SourceSignals()
+    try:
+        text = path.read_text(errors="ignore")
+    except OSError:
+        return SourceSignals()
+    if candidate.level == "api":
+        return _api_source_signals(text)
+    return _page_source_signals(text)
+
+
+def _page_source_signals(text: str) -> SourceSignals:
+    return SourceSignals(
+        api_calls=_unique(_api_calls(text)),
+        actions=_unique(_button_labels(text)),
+        links=_unique(_hrefs(text)),
+        states=_unique(_state_words(text)),
+    )
+
+
+def _api_source_signals(text: str) -> SourceSignals:
+    methods = _unique(
+        method
+        for method in HTTP_METHODS
+        if re.search(rf"\bfunction\s+{method}\b|\bconst\s+{method}\b|\bexport\s+\{{[^}}]*\b{method}\b", text)
+    )
+    request_hints = []
+    if re.search(r"\.json\s*\(", text):
+        request_hints.append("reads JSON request body")
+    if re.search(r"\.formData\s*\(", text):
+        request_hints.append("reads form data")
+    if "searchParams" in text:
+        request_hints.append("reads query params")
+    if re.search(r"\bparams\b", text):
+        request_hints.append("uses route params")
+
+    response_hints = []
+    if re.search(r"Response\.json|NextResponse\.json|json\s*\(", text):
+        response_hints.append("returns JSON response")
+    for status in _unique(re.findall(r"status\s*:\s*(\d{3})", text)):
+        response_hints.append(f"can return status `{status}`")
+
+    return SourceSignals(
+        methods=methods,
+        request_hints=tuple(request_hints),
+        response_hints=tuple(response_hints),
+    )
+
+
+def _api_calls(text: str) -> tuple[str, ...]:
+    calls = []
+    patterns = [
+        r"\bfetch\s*\(\s*['\"]([^'\"]+)['\"]",
+        r"\baxios\.(?:get|post|put|patch|delete)\s*\(\s*['\"]([^'\"]+)['\"]",
+        r"\baxios\s*\(\s*['\"]([^'\"]+)['\"]",
+    ]
+    for pattern in patterns:
+        calls.extend(match for match in re.findall(pattern, text) if match.startswith("/"))
+    return tuple(calls)
+
+
+def _button_labels(text: str) -> tuple[str, ...]:
+    labels = [
+        _clean_inline_text(match)
+        for match in re.findall(r"<button\b[^>]*>(.*?)</button>", text, flags=re.IGNORECASE | re.DOTALL)
+    ]
+    aria_labels = re.findall(r"aria-label\s*=\s*['\"]([^'\"]+)['\"]", text, flags=re.IGNORECASE)
+    return tuple(label for label in labels + aria_labels if label)
+
+
+def _hrefs(text: str) -> tuple[str, ...]:
+    return tuple(match for match in re.findall(r"\bhref\s*=\s*['\"]([^'\"]+)['\"]", text) if match.startswith("/"))
+
+
+def _state_words(text: str) -> tuple[str, ...]:
+    states = []
+    lower = text.lower()
+    for state in ("loading", "empty", "error", "success"):
+        if state in lower:
+            states.append(state)
+    return tuple(states)
+
+
+def _clean_inline_text(value: str) -> str:
+    value = re.sub(r"<[^>]+>", " ", value)
+    value = re.sub(r"\{[^}]+\}", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    return value
+
+
+def _unique(values) -> tuple[str, ...]:
+    seen = set()
+    result = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return tuple(result)
 
 
 def _route_from_candidate(candidate: JourneyCandidate) -> str:

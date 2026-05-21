@@ -209,8 +209,25 @@ def test_create_command_scaffolds_folder_level_journeys(tmp_path):
     api_route = tmp_path / "app" / "api" / "leads" / "route.ts"
     app_page.parent.mkdir(parents=True)
     api_route.parent.mkdir(parents=True)
-    app_page.write_text("export default function Dashboard() { return null }\n")
-    api_route.write_text("export async function POST() { return Response.json({ ok: true }) }\n")
+    app_page.write_text(
+        """
+export default function Dashboard() {
+  const loading = false
+  async function saveLead() {
+    await fetch("/api/leads", { method: "POST" })
+  }
+  return <main><a href="/settings">Settings</a><button onClick={saveLead}>Save Lead</button>{loading ? "Loading" : null}</main>
+}
+"""
+    )
+    api_route.write_text(
+        """
+export async function POST(request) {
+  const body = await request.json()
+  return Response.json({ ok: true, body }, { status: 201 })
+}
+"""
+    )
     args = Namespace(
         file=str(tmp_path),
         output=None,
@@ -235,13 +252,22 @@ def test_create_command_scaffolds_folder_level_journeys(tmp_path):
     assert "parent: ../repo.journey" in page.read_text()
     assert "route: /dashboard" in page.read_text()
     assert "source: ../../app/dashboard/page.tsx" in page.read_text()
+    assert "action `Save Lead`" in page.read_text()
+    assert "link to `/settings`" in page.read_text()
+    assert "calls `/api/leads`" in page.read_text()
     assert "level: api" in api.read_text()
     assert "route: /api/leads" in api.read_text()
     assert "source: ../../app/api/leads/route.ts" in api.read_text()
+    assert "method `POST`" in api.read_text()
+    assert "reads JSON request body" in api.read_text()
+    assert "can return status `201`" in api.read_text()
     flow_text = flow.read_text()
     assert "# Example App Journey Flow" in flow_text
     assert "| page | `/dashboard` | `./pages/dashboard.journey` | `app/dashboard/page.tsx` |" in flow_text
     assert "| api | `/api/leads` | `./apis/leads.journey` | `app/api/leads/route.ts` |" in flow_text
+    assert "Actions: `Save Lead`" in flow_text
+    assert "Calls: `/api/leads`" in flow_text
+    assert "Methods: `POST`" in flow_text
     assert "## End-to-End Walkthrough" in flow_text
 
 
