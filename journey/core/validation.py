@@ -101,20 +101,38 @@ def validate(spec: JourneySpec, *, strict: bool = False) -> ValidationReport:
             issues.append(_error("unknown_step", f"Step requires unknown step '{step.requires}'", path))
         if step.actor.name != "anonymous" and step.actor.name not in entities:
             issues.append(_error("unknown_actor", f"Actor '{step.actor.name}' is not an entity", path))
+        if step.actor.authenticated and not _session_steps(spec):
+            issues.append(
+                _error(
+                    "missing_session_step",
+                    f"Authenticated step '{step.name}' requires a session-producing action such as create_session(...)",
+                    path,
+                )
+            )
         _duplicates([field.name for field in step.inputs], "input", f"{path}.input", issues)
         _duplicates([field.name for field in step.outputs], "output", f"{path}.output", issues)
         _duplicates([error.code_name for error in step.errors], "error", f"{path}.errors", issues)
         _validate_step_refs(step, entities, issues)
 
+    session_token_outputs = _session_token_outputs(spec)
     for test in spec.tests:
         if not test.commands:
             issues.append(_warning("empty_test", f"Test '{test.name}' has no commands", f"test.{test.name}"))
+        captured: set[str] = set()
         for index, command in enumerate(test.commands):
             path = f"test.{test.name}.command[{index}]"
             step = steps.get(command.step_name)
             if not step:
                 issues.append(_error("unknown_step", f"Test calls unknown step '{command.step_name}'", path))
                 continue
+            if step.actor.authenticated and not command.auth_token_var and not (captured & session_token_outputs):
+                issues.append(
+                    _error(
+                        "missing_auth_token",
+                        f"Test command for authenticated step '{step.name}' must use 'as authenticated(token)' or follow a captured session token",
+                        path,
+                    )
+                )
             input_names = {field.name for field in step.inputs}
             for key in command.args:
                 if not key.isdigit() and key not in input_names:
@@ -123,6 +141,8 @@ def validate(spec: JourneySpec, *, strict: bool = False) -> ValidationReport:
             missing = sorted(required_inputs - {key for key in command.args if not key.isdigit()})
             for name in missing:
                 issues.append(_error("missing_input", f"Missing required input '{name}'", path))
+            if command.capture:
+                captured.add(command.capture)
 
     if strict:
         issues = [
@@ -157,6 +177,23 @@ def _validate_step_refs(step: Step, entities: dict[str, object], issues: list[Va
             var = output.expression.split(".", 1)[0]
             if var not in variables and var != "session":
                 issues.append(_warning("unknown_output", f"Output references unknown variable '{var}'", f"step.{step.name}.output.{output.name}"))
+
+
+def _session_steps(spec: JourneySpec) -> list[Step]:
+    return [
+        step
+        for step in spec.steps
+        if any(action.kind == "call" and action.target == "create_session" for action in step.actions)
+    ]
+
+
+def _session_token_outputs(spec: JourneySpec) -> set[str]:
+    outputs = set()
+    for step in _session_steps(spec):
+        for output in step.outputs:
+            if output.expression == "session.token":
+                outputs.add(output.name)
+    return outputs
 
 
 def _validate_value_ref(

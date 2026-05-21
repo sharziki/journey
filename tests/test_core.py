@@ -203,6 +203,131 @@ def test_fastapi_adapter_is_domain_agnostic_for_library_members(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_validate_rejects_authenticated_actor_without_session_step():
+    spec = parse_string(
+        '''
+        journey "Library Borrowing" {
+          entity Member {
+            email string unique
+          }
+
+          entity Loan {
+            member Member
+            title  string
+          }
+
+          step borrow_book {
+            actor Member authenticated
+            input {
+              title string required
+            }
+            action {
+              loan = create Loan(member: actor, title: input.title)
+            }
+            output {
+              loan_id loan.id
+            }
+          }
+        }
+        '''
+    )
+
+    report = validate(spec)
+
+    assert [issue.code for issue in report.errors] == ["missing_session_step"]
+
+
+def test_generated_tests_auto_thread_captured_session_token(tmp_path):
+    spec = parse_string(
+        '''
+        journey "Library Borrowing" {
+          entity Member {
+            email    string unique
+            password string hashed
+          }
+
+          entity Loan {
+            member Member
+            title  string
+          }
+
+          step register_member {
+            actor anonymous
+            input {
+              email    string required format(email)
+              password string required
+            }
+            action {
+              member = create Member(email: input.email, password: input.password)
+            }
+            output {
+              member_id member.id
+            }
+          }
+
+          step login_member {
+            actor anonymous
+            input {
+              email    string required format(email)
+              password string required
+            }
+            action {
+              member = find Member(email: input.email)
+              verify password(input.password, member.password)
+              session = create_session(member)
+            }
+            output {
+              token session.token
+            }
+            errors {
+              invalid_credentials "Invalid credentials" 401
+            }
+          }
+
+          step borrow_book {
+            actor Member authenticated
+            input {
+              title string required
+            }
+            action {
+              loan = create Loan(member: actor, title: input.title)
+            }
+            output {
+              loan_id loan.id
+            }
+          }
+
+          test "member borrows a book" {
+            do register_member(email: "reader@example.com", password: "secret123")
+              expect status 201
+
+            do login_member(email: "reader@example.com", password: "secret123")
+              expect status 200
+              capture token
+
+            do borrow_book(title: "Dune")
+              expect status 201
+              capture loan_id
+          }
+        }
+        '''
+    )
+
+    output = tmp_path / "generated_app"
+    generate(spec, output)
+
+    tests = (output / "test_journey.py").read_text()
+    assert 'params={"token": token}' in tests
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", str(output), "-q"],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_fastapi_adapter_generates_runtime_config_hooks(tmp_path):
     spec = parse_file("examples/auth_workspaces.journey")
 

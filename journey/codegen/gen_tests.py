@@ -118,9 +118,10 @@ def _gen_test_class(block: TestBlock, prefix: str, spec: JourneySpec) -> list[st
 
     # Track captured variables
     captured = {}
+    session_tokens = set()
 
     for cmd in block.commands:
-        lines.extend(f"            {line}" if line else line for line in _gen_test_command(cmd, prefix, captured, spec))
+        lines.extend(f"            {line}" if line else line for line in _gen_test_command(cmd, prefix, captured, session_tokens, spec))
 
     lines.extend([
         "            finally:",
@@ -131,7 +132,7 @@ def _gen_test_class(block: TestBlock, prefix: str, spec: JourneySpec) -> list[st
     return lines
 
 
-def _gen_test_command(cmd: TestCommand, prefix: str, captured: dict, spec: JourneySpec) -> list[str]:
+def _gen_test_command(cmd: TestCommand, prefix: str, captured: dict, session_tokens: set[str], spec: JourneySpec) -> list[str]:
     lines = []
     step = spec.get_step(cmd.step_name)
     path = f"{prefix}{route_path(step) if step else '/' + cmd.step_name.replace('_', '-')}"
@@ -150,11 +151,15 @@ def _gen_test_command(cmd: TestCommand, prefix: str, captured: dict, spec: Journ
     json_body = "{" + ", ".join(json_parts) + "}"
 
     # Build request params
-    if cmd.auth_token_var:
+    auth_token_var = cmd.auth_token_var
+    if not auth_token_var and step and step.actor.authenticated and session_tokens:
+        auth_token_var = sorted(session_tokens)[-1]
+
+    if auth_token_var:
         lines.append(f"        resp = await client.post(")
         lines.append(f'            "{path}",')
         lines.append(f"            json={json_body},")
-        lines.append(f'            params={{"token": {cmd.auth_token_var}}},')
+        lines.append(f'            params={{"token": {auth_token_var}}},')
         lines.append(f"        )")
     else:
         lines.append(f"        resp = await client.post(")
@@ -183,6 +188,8 @@ def _gen_test_command(cmd: TestCommand, prefix: str, captured: dict, spec: Journ
         else:
             lines.append(f'        {cmd.capture} = resp.json()["{cmd.capture}"]')
         captured[cmd.capture] = True
+        if step and any(output.name == cmd.capture and output.expression == "session.token" for output in step.outputs):
+            session_tokens.add(cmd.capture)
 
     # Special handling for verify_email step: token comes from email (DB)
     if cmd.step_name == "verify_email" and "last_email.token" in str(cmd.args):
