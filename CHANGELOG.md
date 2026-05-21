@@ -7,6 +7,7 @@
 - Added lightweight source signal extraction for generated journey docs: page actions, links, API calls, state words, API methods, request hints, and response statuses.
 - Added route and source metadata to lightweight agent manifests so agents can reason about linked journeys without scraping document bodies.
 - Improved flat-file route normalization for Remix/React Router-style files such as `_index.tsx` and `dashboard.$id.tsx`.
+- Made `journey sync` refresh child journey metadata without overwriting hand-edited journey content.
 
 ## 0.2.0
 

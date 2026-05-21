@@ -130,7 +130,10 @@ def sync_journeys(
         candidate_dir = out / f"{candidate.level}s"
         candidate_dir.mkdir(parents=True, exist_ok=True)
         path = candidate_dir / f"{candidate.slug}.journey"
-        _write_once(path, _render_child_journey(title, candidate, project), force=force)
+        if force or not path.exists():
+            path.write_text(_render_child_journey(title, candidate, project))
+        else:
+            _refresh_child_metadata(path, candidate)
         written.append(str(path))
 
     index_path = out / "README.md"
@@ -187,6 +190,48 @@ def _write_once(path: Path, text: str, *, force: bool) -> None:
     if path.exists() and not force:
         return
     path.write_text(text)
+
+
+def _refresh_child_metadata(path: Path, candidate: JourneyCandidate) -> None:
+    text = path.read_text()
+    updates = {
+        "parent": "../repo.journey",
+        "level": candidate.level,
+        "route": _route_from_candidate(candidate),
+        "source": f"../../{candidate.source.as_posix()}" if candidate.source else "unknown",
+    }
+    for key, value in updates.items():
+        text = _upsert_scalar(text, key, value)
+    path.write_text(text)
+
+
+def _upsert_scalar(text: str, key: str, value: str) -> str:
+    pattern = re.compile(rf"^(\s*{re.escape(key)}\s*:\s*).*$", re.MULTILINE)
+    replacement = rf"\g<1>{value}"
+    if pattern.search(text):
+        return pattern.sub(replacement, text, count=1)
+
+    lines = text.splitlines()
+    insert_at = _metadata_insert_index(lines, key)
+    lines.insert(insert_at, f"{key}: {value}")
+    trailing_newline = "\n" if text.endswith("\n") else ""
+    return "\n".join(lines) + trailing_newline
+
+
+def _metadata_insert_index(lines: list[str], key: str) -> int:
+    order = {
+        "parent": ("journey",),
+        "level": ("parent", "journey"),
+        "route": ("level", "parent", "journey"),
+        "source": ("route", "level", "parent", "journey"),
+    }
+    for previous in order.get(key, ()):
+        for index, line in enumerate(lines):
+            if previous == "journey" and re.match(r'\s*journey\s+"', line):
+                return index + 1
+            if re.match(rf"\s*{re.escape(previous)}\s*:", line):
+                return index + 1
+    return min(1, len(lines))
 
 
 def _render_repo_journey(title: str, candidates: list[JourneyCandidate]) -> str:

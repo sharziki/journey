@@ -394,6 +394,27 @@ def test_sync_adds_new_journeys_without_overwriting_existing_specs(tmp_path):
     assert "./apis/leads.journey" in repo
 
 
+def test_sync_refreshes_child_metadata_without_overwriting_custom_content(tmp_path):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    page = tmp_path / ".journey" / "pages" / "dashboard.journey"
+    page.write_text(
+        page.read_text()
+        .replace("route: /dashboard", "route: /old-dashboard")
+        .replace("source: ../../app/dashboard/page.tsx", "source: ../../app/missing/page.tsx")
+        + "\ncustom note: keep this\n"
+    )
+
+    cmd_sync(Namespace(file=str(tmp_path), name="Example App", force=False))
+
+    synced = page.read_text()
+    assert "route: /dashboard" in synced
+    assert "source: ../../app/dashboard/page.tsx" in synced
+    assert "custom note: keep this" in synced
+
+
 def test_doctor_accepts_healthy_lightweight_graph(tmp_path, capsys):
     app_page = tmp_path / "app" / "dashboard" / "page.tsx"
     api_route = tmp_path / "app" / "api" / "leads" / "route.ts"
