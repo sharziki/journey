@@ -342,6 +342,54 @@ def cmd_diff(args):
         sys.exit(1)
 
 
+def cmd_status(args):
+    """Print a concise Journey status summary."""
+    if _is_structured_journey(args.file):
+        from ..parser import parse_file
+        from ..core import validate
+
+        spec = parse_file(args.file)
+        report = validate(spec, strict=False)
+        print(f"Journey: {spec.name}")
+        print("Mode: structured backend")
+        print(f"Entities: {len(spec.entities)}")
+        print(f"Steps: {len(spec.steps)}")
+        print(f"Tests: {len(spec.tests)}")
+        print(f"Validation: {'ok' if report.ok else 'issues'}")
+        print(f"Next: journey agent {args.file}")
+        return
+
+    from ..core.doctor import doctor_journey
+    from ..core.graph import load_journey_graph
+    from ..core.scaffold import detect_candidates
+
+    source = args.file or "."
+    graph = load_journey_graph(source)
+    project = _project_root_for_status(source)
+    candidates = detect_candidates(project)
+    issues = doctor_journey(source)
+    missing = [issue for issue in issues if issue.code == "missing_journey"]
+    drift = [
+        issue
+        for issue in issues
+        if issue.code in {"missing_child", "missing_parent", "missing_journey", "orphan_journey", "stale_source", "unloaded_child"}
+    ]
+    pages_total = sum(1 for candidate in candidates if candidate.level == "page")
+    apis_total = sum(1 for candidate in candidates if candidate.level == "api")
+    pages_missing = sum(1 for issue in missing if _issue_level(issue) == "page")
+    apis_missing = sum(1 for issue in missing if _issue_level(issue) == "api")
+
+    print(f"Journey: {graph.root.name}")
+    print("Mode: lightweight graph")
+    print(f"Files: {len(graph.nodes)} journeys")
+    print(f"Pages: {pages_total - pages_missing} covered / {pages_missing} missing")
+    print(f"APIs: {apis_total - apis_missing} covered / {apis_missing} missing")
+    print(f"Drift: {'none' if not drift else str(len(drift)) + ' issue(s)'}")
+    print(f"Warnings: {len([issue for issue in issues if issue.severity == 'warning'])}")
+    print(f"Errors: {len([issue for issue in issues if issue.severity == 'error'])}")
+    print(f"Next: {_status_next(args.file, drift)}")
+
+
 def cmd_agent(args):
     """Prepare and verify a journey for coding agents."""
     source = args.file
@@ -805,6 +853,35 @@ def _diff_marker(code: str) -> str:
     return "!"
 
 
+def _project_root_for_status(source: str | None) -> Path:
+    path = Path(source or ".").resolve()
+    if path.is_dir():
+        if path.name == ".journey":
+            return path.parent
+        return path
+    parts = path.parts
+    if ".journey" in parts:
+        index = parts.index(".journey")
+        return Path(*parts[:index]) if index > 0 else Path("/")
+    return path.parent
+
+
+def _issue_level(issue) -> str | None:
+    path = issue.path.replace("\\", "/")
+    if "/api/" in path or "/apis/" in path:
+        return "api"
+    if "/page." in path or "/pages/" in path:
+        return "page"
+    return None
+
+
+def _status_next(source: str | None, drift: list) -> str:
+    target = source or "."
+    if drift:
+        return f"journey diff {target}"
+    return f"journey watch {target} --once"
+
+
 def _print_watch_dashboard(journey_name: str, checklist: list[str], completed: set[str], current_index: int | None):
     width = 78
     print()
@@ -916,6 +993,10 @@ def main():
     p_diff.add_argument("file", nargs="?", help="Path to a project directory or Journey graph")
     p_diff.add_argument("--check", action="store_true", help="Exit non-zero when drift is found")
 
+    # status
+    p_status = sub.add_parser("status", help="Show a concise Journey project summary")
+    p_status.add_argument("file", nargs="?", default=".", help="Path to a project directory or .journey file")
+
     # agent
     p_agent = sub.add_parser("agent", help="Prepare a journey for an AI coding agent")
     p_agent.add_argument("file", help="Path to .journey file")
@@ -970,6 +1051,8 @@ def main():
         cmd_doctor(args)
     elif args.command == "diff":
         cmd_diff(args)
+    elif args.command == "status":
+        cmd_status(args)
     elif args.command == "agent":
         cmd_agent(args)
     elif args.command == "watch":

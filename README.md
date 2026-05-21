@@ -52,6 +52,7 @@ When files change, rescan without overwriting edited journey specs:
 journey sync .
 journey doctor .
 journey diff .
+journey status .
 journey watch . --once
 ```
 
@@ -276,6 +277,7 @@ journey watch product.journey \
 | `journey sync [path]` | Rescan a project and add missing page/API journeys without overwriting edited specs |
 | `journey doctor [path]` | Check graph health: missing links, orphan journeys, stale sources, missing specs, and acceptance gaps |
 | `journey diff [path]` | Show drift between code files and linked Journey files, with `--check` for CI |
+| `journey status [path]` | Show a one-screen Journey summary and next command |
 | `journey execute <path> --autonomous` | Run the deliverable-by-deliverable builder/QA loop with a local agent runtime |
 | `journey watch <path>` | Lower-level watch loop for lightweight graphs or structured backend journeys |
 | `journey compile <file>` | Optional adapter: generate a FastAPI project |
@@ -368,6 +370,7 @@ Working today:
 - graph-aware `inspect` and `validate` commands for linked journeys
 - `doctor` health checks for missing links, orphan journeys, stale sources, missing specs, and acceptance gaps
 - `diff` for readable code-vs-journey drift
+- `status` for one-screen project summaries
 - lightweight `watch` / `execute` loops for graph-based projects
 - structured `.journey` syntax
 - parser and semantic validation
@@ -382,6 +385,7 @@ Working today:
 - `sync` for adding newly discovered page/API journeys without overwriting edited specs
 - `doctor` for checking whether the lightweight journey map is healthy
 - `diff` for showing journey drift without changing files
+- `status` for seeing coverage, drift, and the next command quickly
 - lightweight `watch` and `execute` support for linked journey graphs
 
 Still early:

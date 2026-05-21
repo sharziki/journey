@@ -14,6 +14,7 @@ from journey.cli.main import (
     cmd_inspect,
     cmd_manifest,
     cmd_shape,
+    cmd_status,
     cmd_sync,
     cmd_validate,
     cmd_watch,
@@ -435,6 +436,56 @@ def test_diff_check_exits_when_drift_exists(tmp_path):
         cmd_diff(Namespace(file=str(tmp_path), check=True))
 
     assert exc.value.code == 1
+
+
+def test_status_summarizes_lightweight_graph(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    api_route = tmp_path / "app" / "api" / "leads" / "route.ts"
+    app_page.parent.mkdir(parents=True)
+    api_route.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    api_route.write_text("export async function POST() { return Response.json({ ok: true }) }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    capsys.readouterr()
+
+    cmd_status(Namespace(file=str(tmp_path)))
+
+    output = capsys.readouterr().out
+    assert "Journey: Example App" in output
+    assert "Mode: lightweight graph" in output
+    assert "Pages: 1 covered / 0 missing" in output
+    assert "APIs: 1 covered / 0 missing" in output
+    assert "Drift: none" in output
+    assert f"Next: journey watch {tmp_path} --once" in output
+
+
+def test_status_summarizes_lightweight_drift(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    settings_page = tmp_path / "app" / "settings" / "page.tsx"
+    settings_page.parent.mkdir(parents=True)
+    settings_page.write_text("export default function Settings() { return null }\n")
+    capsys.readouterr()
+
+    cmd_status(Namespace(file=str(tmp_path)))
+
+    output = capsys.readouterr().out
+    assert "Pages: 1 covered / 1 missing" in output
+    assert "Drift: 1 issue(s)" in output
+    assert f"Next: journey diff {tmp_path}" in output
+
+
+def test_status_summarizes_structured_journey(capsys):
+    cmd_status(Namespace(file="examples/auth_workspaces.journey"))
+
+    output = capsys.readouterr().out
+    assert "Journey: User Onboarding" in output
+    assert "Mode: structured backend" in output
+    assert "Entities: 3" in output
+    assert "Steps: 6" in output
+    assert "Tests: 3" in output
 
 
 def test_validate_accepts_lightweight_graph(tmp_path, capsys):

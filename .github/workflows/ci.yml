@@ -32,6 +32,7 @@ jobs:
           journey validate "$tmpdir"
           journey doctor "$tmpdir"
           journey diff "$tmpdir" --check
+          journey status "$tmpdir"
           journey manifest "$tmpdir" -o "$tmpdir/handoff"
           journey agent "$tmpdir" --no-test -o "$tmpdir/agent"
           JOURNEY_SKIP_PROJECT_QA=1 journey watch "$tmpdir" --once -o "$tmpdir/watch" --state-dir "$tmpdir/watch-state"
