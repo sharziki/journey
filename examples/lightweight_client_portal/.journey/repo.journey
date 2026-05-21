@@ -1,0 +1,32 @@
+journey "Lightweight Client Portal"
+
+mission:
+  Map the client portal product at the repository level so agents can understand pages, API routes, and acceptance before editing code.
+
+level: repo
+
+children:
+  - ./apis/leads.journey
+  - ./pages/dashboard.journey
+  - ./pages/settings.journey
+
+pages:
+  - Dashboard
+  - Settings
+
+apis:
+  - Leads
+
+flows:
+  - A client lands on Dashboard, reviews active work, then adjusts preferences in Settings.
+  - A lead capture form posts to the Leads API and receives a new lead status.
+
+acceptance:
+  - every visible page has a linked page journey
+  - every API route has a linked API journey
+  - agent handoffs include the product flow without requiring a running app
+
+done when:
+  - repo-level intent is clear
+  - each page/API-level journey has purpose, rules, and acceptance
+  - open questions are written down instead of hidden in code

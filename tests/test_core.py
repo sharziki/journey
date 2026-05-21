@@ -488,6 +488,27 @@ def test_status_summarizes_structured_journey(capsys):
     assert "Tests: 3" in output
 
 
+def test_lightweight_example_is_healthy(tmp_path):
+    output = tmp_path / "handoff"
+    cmd_validate(Namespace(file="examples/lightweight_client_portal", strict=False))
+    cmd_doctor(Namespace(file="examples/lightweight_client_portal", strict=False))
+    cmd_diff(Namespace(file="examples/lightweight_client_portal", check=True))
+    cmd_agent(
+        Namespace(
+            file="examples/lightweight_client_portal",
+            output=str(output),
+            robustness="strict",
+            strict=False,
+            clean=True,
+            no_agent_manifest=False,
+            no_markdown_summary=False,
+            no_test=True,
+        )
+    )
+
+    assert json.loads((output / "journey.agent.json").read_text())["mode"] == "lightweight"
+
+
 def test_validate_accepts_lightweight_graph(tmp_path, capsys):
     app_page = tmp_path / "app" / "dashboard" / "page.tsx"
     app_page.parent.mkdir(parents=True)

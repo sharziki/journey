@@ -1,0 +1,33 @@
+journey "Lightweight Client Portal / Settings"
+
+parent: ../repo.journey
+level: page
+source: ../../app/settings/page.tsx
+
+mission:
+  Describe what the Settings page lets a client control and how agents should preserve that behavior.
+
+page "Settings":
+  purpose:
+    Let a client update profile details and notification preferences.
+
+  user sees:
+    - editable profile fields
+    - notification preference controls
+    - save action
+    - success and validation messages
+
+  rules:
+    - required profile fields must be validated before save
+    - notification preferences must persist across sessions
+    - failed saves should show a useful error
+
+  acceptance:
+    - Settings supports profile and notification updates
+    - Settings handles validation errors
+    - tests or QA notes cover the expected behavior
+
+done when:
+  - page behavior matches this journey
+  - links to adjacent journeys are current
+  - unresolved product questions are listed explicitly

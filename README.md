@@ -213,7 +213,13 @@ The FastAPI adapter turns structured flows like this into:
 
 ## Examples
 
-The repo includes structured backend examples you can run today:
+The repo includes a lightweight graph example and structured backend examples you can run today:
+
+| Example | What it proves | Try it |
+|---------|----------------|--------|
+| `examples/lightweight_client_portal` | Repo/page/API journey graph with no database or generated app | `journey status examples/lightweight_client_portal` |
+
+Structured adapter examples:
 
 | Example | What it proves | Try it |
 |---------|----------------|--------|
@@ -226,6 +232,9 @@ The repo includes structured backend examples you can run today:
 Run every shipped example:
 
 ```bash
+journey validate examples/lightweight_client_portal
+journey doctor examples/lightweight_client_portal
+journey diff examples/lightweight_client_portal --check
 for f in examples/*.journey; do
   journey test "$f" --clean
 done

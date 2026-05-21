@@ -1,0 +1,36 @@
+journey "Lightweight Client Portal / Leads API"
+
+parent: ../repo.journey
+level: api
+source: ../../app/api/leads/route.ts
+
+mission:
+  Describe how a lead is captured from the client portal and what response the caller can rely on.
+
+api "Leads":
+  purpose:
+    Accept a lead capture request and return the created lead identity and status.
+
+  request:
+    - email is required
+    - optional context fields may be passed by the caller
+    - invalid JSON should return a useful error
+
+  response:
+    - success includes lead id, email, and status
+    - duplicate or invalid leads should produce explicit failure states
+
+  rules:
+    - lead email must be validated before persistence
+    - status starts as new
+    - the response shape should stay stable for callers
+
+  acceptance:
+    - Leads API supports the intended lead capture flow
+    - Leads API handles invalid or missing email
+    - tests or QA notes cover the expected behavior
+
+done when:
+  - API behavior matches this journey
+  - links to adjacent journeys are current
+  - unresolved product questions are listed explicitly

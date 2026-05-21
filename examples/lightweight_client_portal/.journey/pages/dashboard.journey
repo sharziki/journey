@@ -1,0 +1,33 @@
+journey "Lightweight Client Portal / Dashboard"
+
+parent: ../repo.journey
+level: page
+source: ../../app/dashboard/page.tsx
+
+mission:
+  Describe what the Dashboard page does, how clients orient themselves, and what must be true when it is done.
+
+page "Dashboard":
+  purpose:
+    Give a client a concise view of active projects, open requests, and the next action they should take.
+
+  user sees:
+    - active project summary
+    - open request count
+    - next recommended action
+    - empty state when there is no active work
+
+  rules:
+    - only client-visible work appears on the dashboard
+    - empty states should be explicit and useful
+    - next action should be clear enough for an agent to test
+
+  acceptance:
+    - Dashboard supports the intended client overview flow
+    - Dashboard handles empty and loading states
+    - tests or QA notes cover the expected behavior
+
+done when:
+  - page behavior matches this journey
+  - links to adjacent journeys are current
+  - unresolved product questions are listed explicitly
