@@ -395,6 +395,25 @@ def cmd_watch(args):
     """Run the journey builder/QA loop deliverable by deliverable."""
     from ..parser import parse_file
     from ..core import normalize
+    from ..core.graph import load_journey_graph
+
+    if not _is_structured_journey(args.file):
+        graph = load_journey_graph(args.file)
+        checklist = graph.checklist()
+        output = args.output or str(Path(".journey") / "handoff")
+        _run_watch_loop(
+            args=args,
+            source=args.file,
+            output=output,
+            journey_name=graph.root.name,
+            journey_slug=graph.slug,
+            checklist=checklist,
+            prepare=lambda: _prepare_lightweight_agent_workspace(args.file, output),
+            qa_label="project checks",
+            qa_runner=_run_project_qa,
+            success_label="Journey handoff accepted",
+        )
+        return
 
     source = args.file
     output = args.output or _default_output_dir(source)
@@ -408,55 +427,43 @@ def cmd_watch(args):
     spec = parse_file(source)
     journey = normalize(spec)
     checklist = list(journey.checklist())
-    state_path = _watch_state_path(args.state_dir, journey.slug)
-    state = _load_watch_state(state_path)
-    completed = set(state.get("completed", []))
-    cycles = 0
-
-    while cycles < args.max_cycles:
-        current_index = _next_incomplete_index(checklist, completed)
-        _print_watch_dashboard(journey.name, checklist, completed, current_index)
-
-        if current_index is None:
-            print("\nJourney complete: all deliverables are marked complete.")
-            return
-
-        item = checklist[current_index]
-        print(f"\nBuilder session target [{current_index + 1}/{len(checklist)}]: {item}")
-        _prepare_agent_workspace(source, output, config)
-
-        builder_code = _run_builder_session(args, source, output, item, current_index, len(checklist))
-        if builder_code != 0:
-            print("\nBuilder session failed. Fix that before QA can advance the journey.")
-            sys.exit(builder_code)
-
-        print("\nQA agent: running generated acceptance tests...")
-        qa_code = _run_agent_qa(output)
-        if qa_code != 0:
-            print("\nQA failed. Keeping the current deliverable active for repair.")
-            sys.exit(qa_code)
-
-        completed.add(item)
-        state = {"journey": journey.name, "slug": journey.slug, "completed": sorted(completed)}
-        _save_watch_state(state_path, state)
-        print(f"\nQA passed. Deliverable accepted: {item}")
-        print("Triggering next deliverable...")
-
-        cycles += 1
-        if args.once:
-            break
-
-    next_index = _next_incomplete_index(checklist, completed)
-    _print_watch_dashboard(journey.name, checklist, completed, next_index)
-    if next_index is None:
-        print("\nJourney complete: all deliverables are marked complete.")
-    else:
-        print("\nPaused. Re-run the same watch command to continue.")
+    _run_watch_loop(
+        args=args,
+        source=source,
+        output=output,
+        journey_name=journey.name,
+        journey_slug=journey.slug,
+        checklist=checklist,
+        prepare=lambda: _prepare_agent_workspace(source, output, config),
+        qa_label="generated acceptance tests",
+        qa_runner=lambda: _run_agent_qa(output),
+        success_label="Deliverable accepted",
+    )
 
 
 def cmd_execute(args):
     """Execute a journey, optionally with an autonomous coding agent loop."""
     if not _is_structured_journey(args.file):
+        if Path(args.file).is_dir() or _looks_linked_journey(Path(args.file)):
+            if not args.autonomous:
+                agent_args = argparse.Namespace(**vars(args))
+                agent_args.no_test = False
+                cmd_agent(agent_args)
+                return
+
+            command = _autonomous_agent_command()
+            if command is None:
+                print("No supported autonomous coding agent runtime found.")
+                print("Install Codex CLI or set JOURNEY_AGENT_COMMAND, then rerun:")
+                print(f"  journey execute {args.file} --autonomous")
+                sys.exit(2)
+
+            watch_args = argparse.Namespace(**vars(args))
+            watch_args.agent_command = command
+            watch_args.once = args.once
+            watch_args.max_cycles = args.max_cycles
+            cmd_watch(watch_args)
+            return
         cmd_execute_natural(args)
         return
 
@@ -661,6 +668,65 @@ def _next_incomplete_index(checklist: list[str], completed: set[str]) -> int | N
         if item not in completed:
             return index
     return None
+
+
+def _run_watch_loop(
+    *,
+    args,
+    source: str,
+    output: str,
+    journey_name: str,
+    journey_slug: str,
+    checklist: list[str],
+    prepare,
+    qa_label: str,
+    qa_runner,
+    success_label: str,
+) -> None:
+    state_path = _watch_state_path(args.state_dir, journey_slug)
+    state = _load_watch_state(state_path)
+    completed = set(state.get("completed", []))
+    cycles = 0
+
+    while cycles < args.max_cycles:
+        current_index = _next_incomplete_index(checklist, completed)
+        _print_watch_dashboard(journey_name, checklist, completed, current_index)
+
+        if current_index is None:
+            print("\nJourney complete: all deliverables are marked complete.")
+            return
+
+        item = checklist[current_index]
+        print(f"\nBuilder session target [{current_index + 1}/{len(checklist)}]: {item}")
+        prepare()
+
+        builder_code = _run_builder_session(args, source, output, item, current_index, len(checklist))
+        if builder_code != 0:
+            print("\nBuilder session failed. Fix that before QA can advance the journey.")
+            sys.exit(builder_code)
+
+        print(f"\nQA agent: running {qa_label}...")
+        qa_code = qa_runner()
+        if qa_code != 0:
+            print("\nQA failed. Keeping the current deliverable active for repair.")
+            sys.exit(qa_code)
+
+        completed.add(item)
+        state = {"journey": journey_name, "slug": journey_slug, "completed": sorted(completed)}
+        _save_watch_state(state_path, state)
+        print(f"\nQA passed. {success_label}: {item}")
+        print("Triggering next deliverable...")
+
+        cycles += 1
+        if args.once:
+            break
+
+    next_index = _next_incomplete_index(checklist, completed)
+    _print_watch_dashboard(journey_name, checklist, completed, next_index)
+    if next_index is None:
+        print("\nJourney complete: all deliverables are marked complete.")
+    else:
+        print("\nPaused. Re-run the same watch command to continue.")
 
 
 def _run_builder_session(args, source: str, output: str, item: str, index: int, total: int) -> int:

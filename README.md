@@ -52,6 +52,7 @@ When files change, rescan without overwriting edited journey specs:
 journey sync .
 journey doctor .
 journey diff .
+journey watch . --once
 ```
 
 For the optional FastAPI backend adapter, run:
@@ -275,8 +276,8 @@ journey watch product.journey \
 | `journey sync [path]` | Rescan a project and add missing page/API journeys without overwriting edited specs |
 | `journey doctor [path]` | Check graph health: missing links, orphan journeys, stale sources, missing specs, and acceptance gaps |
 | `journey diff [path]` | Show drift between code files and linked Journey files, with `--check` for CI |
-| `journey execute <file> --autonomous` | Run the deliverable-by-deliverable builder/QA loop with a local agent runtime |
-| `journey watch <file>` | Lower-level watch loop for custom agent commands |
+| `journey execute <path> --autonomous` | Run the deliverable-by-deliverable builder/QA loop with a local agent runtime |
+| `journey watch <path>` | Lower-level watch loop for lightweight graphs or structured backend journeys |
 | `journey compile <file>` | Optional adapter: generate a FastAPI project |
 | `journey test <file>` | Optional adapter: compile and run generated pytest scenarios |
 | `journey run <file>` | Optional adapter: compile and start the generated FastAPI app with uvicorn |
@@ -367,6 +368,7 @@ Working today:
 - graph-aware `inspect` and `validate` commands for linked journeys
 - `doctor` health checks for missing links, orphan journeys, stale sources, missing specs, and acceptance gaps
 - `diff` for readable code-vs-journey drift
+- lightweight `watch` / `execute` loops for graph-based projects
 - structured `.journey` syntax
 - parser and semantic validation
 - FastAPI backend generation
@@ -380,6 +382,7 @@ Working today:
 - `sync` for adding newly discovered page/API journeys without overwriting edited specs
 - `doctor` for checking whether the lightweight journey map is healthy
 - `diff` for showing journey drift without changing files
+- lightweight `watch` and `execute` support for linked journey graphs
 
 Still early:
 

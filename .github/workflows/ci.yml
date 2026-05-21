@@ -34,6 +34,8 @@ jobs:
           journey diff "$tmpdir" --check
           journey manifest "$tmpdir" -o "$tmpdir/handoff"
           journey agent "$tmpdir" --no-test -o "$tmpdir/agent"
+          JOURNEY_SKIP_PROJECT_QA=1 journey watch "$tmpdir" --once -o "$tmpdir/watch" --state-dir "$tmpdir/watch-state"
+          JOURNEY_AGENT_COMMAND=true JOURNEY_SKIP_PROJECT_QA=1 journey execute "$tmpdir" --autonomous --once -o "$tmpdir/execute" --state-dir "$tmpdir/execute-state"
       - name: Validate examples
         run: |
           set -e

@@ -500,6 +500,92 @@ def test_watch_command_advances_one_deliverable(tmp_path):
     assert state["completed"] == ["Parse journey 'Journey Spine'"]
 
 
+def test_watch_command_advances_lightweight_graph(tmp_path, monkeypatch):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    output = tmp_path / "handoff"
+    state_dir = tmp_path / "state"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    monkeypatch.setenv("JOURNEY_SKIP_PROJECT_QA", "1")
+    args = Namespace(
+        file=str(tmp_path),
+        output=str(output),
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+        state_dir=str(state_dir),
+        agent_command=None,
+        once=True,
+        max_cycles=1,
+    )
+
+    cmd_watch(args)
+
+    state = json.loads((state_dir / "example-app.json").read_text())
+    assert state["completed"] == ["Read root journey 'Example App'"]
+    assert json.loads((output / "journey.agent.json").read_text())["mode"] == "lightweight"
+
+
+def test_execute_lightweight_non_autonomous_prepares_agent_handoff(tmp_path, monkeypatch):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    output = tmp_path / "handoff"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    monkeypatch.setenv("JOURNEY_SKIP_PROJECT_QA", "1")
+    args = Namespace(
+        file=str(tmp_path),
+        output=str(output),
+        autonomous=False,
+        state_dir=str(tmp_path / "state"),
+        once=True,
+        max_cycles=1,
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cmd_execute(args)
+
+    assert exc.value.code == 0
+    assert json.loads((output / "journey.agent.json").read_text())["mode"] == "lightweight"
+
+
+def test_execute_lightweight_autonomous_advances_one_item(tmp_path, monkeypatch):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    output = tmp_path / "handoff"
+    state_dir = tmp_path / "state"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    monkeypatch.setenv("JOURNEY_AGENT_COMMAND", "true")
+    monkeypatch.setenv("JOURNEY_SKIP_PROJECT_QA", "1")
+    args = Namespace(
+        file=str(tmp_path),
+        output=str(output),
+        autonomous=True,
+        state_dir=str(state_dir),
+        once=True,
+        max_cycles=1,
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+    )
+
+    cmd_execute(args)
+
+    state = json.loads((state_dir / "example-app.json").read_text())
+    assert state["completed"] == ["Read root journey 'Example App'"]
+
+
 def test_autonomous_agent_command_prefers_environment(monkeypatch):
     monkeypatch.setenv("JOURNEY_AGENT_COMMAND", "custom-agent {item}")
 
