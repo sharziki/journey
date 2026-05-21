@@ -22,12 +22,16 @@ jobs:
         run: python -m pytest
       - name: Validate examples
         run: |
-          journey validate examples/auth_workspaces.journey --strict
-          journey validate examples/journey_spine.journey --strict
+          set -e
+          for file in examples/*.journey; do
+            journey validate "$file" --strict
+          done
       - name: Generated acceptance tests
         run: |
-          journey test examples/auth_workspaces.journey --robustness strict --clean
-          journey test examples/journey_spine.journey --robustness strict --clean
+          set -e
+          for file in examples/*.journey; do
+            journey test "$file" --robustness strict --clean
+          done
       - name: Build package
         run: |
           python -m build

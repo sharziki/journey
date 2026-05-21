@@ -105,6 +105,38 @@ def cmd_inspect(args):
     """Parse and display the AST for a .journey file."""
     from ..parser import parse_file
     from ..core import normalize, validate
+    from ..core.graph import load_journey_graph, validate_journey_graph
+
+    if not _is_structured_journey(args.file):
+        graph = load_journey_graph(args.file)
+        issues = validate_journey_graph(graph)
+        print(f"Journey Graph: {graph.root.name}")
+        print(f"  Root: {graph.root.path}")
+        print(f"  Files: {len(graph.nodes)}")
+        print()
+        print("Journeys:")
+        for node in graph.nodes:
+            rel = node.path.relative_to(graph.root.path.parent)
+            level = f" [{node.level}]" if node.level else ""
+            print(f"  {rel}{level}")
+            if node.parent:
+                print(f"    parent: {node.parent}")
+            for child in node.children:
+                print(f"    child:  {child}")
+        print()
+        print("Agent checklist:")
+        for item in graph.checklist():
+            print(f"  [ ] {item}")
+        print()
+        print("Validation:")
+        if not issues:
+            print("  ok")
+            return
+        for issue in issues:
+            print(f"  {issue.severity}: {issue.code} at {issue.path} — {issue.message}")
+        if any(issue.severity == "error" for issue in issues):
+            sys.exit(1)
+        return
 
     spec = parse_file(args.file)
     report = validate(spec, strict=args.strict)
@@ -174,6 +206,19 @@ def cmd_validate(args):
     """Validate a .journey file."""
     from ..parser import parse_file
     from ..core import validate
+    from ..core.graph import load_journey_graph, validate_journey_graph
+
+    if not _is_structured_journey(args.file):
+        graph = load_journey_graph(args.file)
+        issues = validate_journey_graph(graph)
+        if not issues:
+            print("ok")
+            return
+        for issue in issues:
+            print(f"{issue.severity}: {issue.code} at {issue.path} — {issue.message}")
+        if any(issue.severity == "error" for issue in issues):
+            sys.exit(1)
+        return
 
     report = validate(parse_file(args.file), strict=args.strict)
     if report.ok and not report.warnings:
@@ -203,10 +248,52 @@ def cmd_manifest(args):
         print(path)
 
 
+def cmd_create(args):
+    """Create a Journey file tree or a flow document for an existing journey."""
+    from ..parser import parse_file
+    from ..adapters.flow import write_flow_markdown
+    from ..core.scaffold import scaffold_journeys
+
+    source = Path(args.file or ".")
+    if source.is_file() and source.suffix == ".journey":
+        output = args.output or _default_output_dir(str(source))
+        spec = parse_file(str(source))
+        path = write_flow_markdown(spec, output, args.filename)
+
+        print(f"Created journey flow document: {path}")
+        print("Use it to review routes, features, data, and acceptance walkthroughs without opening the app.")
+        return
+
+    target = source if source.is_dir() or source.suffix == "" else source.parent
+    result = scaffold_journeys(target, name=args.name, force=args.force)
+    print(f"Created folder-level journeys in {result.root}/")
+    for path in result.files:
+        print(f"  {path}")
+    print("Read repo.journey first, then follow children to the page-level journeys.")
+
+
 def cmd_agent(args):
     """Prepare and verify a journey for coding agents."""
     source = args.file
-    output = args.output or _default_output_dir(source)
+    structured = _is_structured_journey(source)
+    output = args.output or (_default_output_dir(source) if structured else str(Path(".journey") / "handoff"))
+    if not structured:
+        markdown_path, manifest_path = _prepare_lightweight_agent_workspace(source, output)
+        print("\nAgent handoff:")
+        print(f"  1. Read {markdown_path}")
+        print(f"  2. Read {manifest_path}")
+        print("  3. Implement or repair the app against the linked journey map")
+        print(f"  4. Re-run: journey agent {source}")
+        if args.no_test:
+            print("\nSkipped project QA (--no-test).")
+            return
+        returncode = _run_project_qa()
+        if returncode == 0:
+            print("\nJourney handoff accepted: lightweight graph is ready for agents.")
+        else:
+            print("\nProject QA failed. Use the failure output as the next agent work item.")
+        sys.exit(returncode)
+
     config = _config_from_args(args).with_overrides(
         strict_validation=True,
         fail_on_warnings=True,
@@ -432,6 +519,33 @@ def _prepare_agent_workspace(source: str, output: str, config: RobustnessConfig)
     return result
 
 
+def _prepare_lightweight_agent_workspace(source: str, output: str) -> tuple[str, str]:
+    from ..core.graph import load_journey_graph, write_graph_handoff
+    from ..core.natural import shape_unstructured_journey, write_natural_handoff
+    from ..core.scaffold import scaffold_journeys
+
+    path = Path(source)
+    if path.is_dir() and not (path / ".journey" / "repo.journey").exists() and not (path / "repo.journey").exists():
+        print(f"No journey graph found in {source}; scaffolding lightweight journeys first.")
+        scaffold_journeys(path)
+    if path.is_dir() or _looks_linked_journey(path):
+        print(f"Reading lightweight journey graph: {source}")
+        graph = load_journey_graph(source)
+        print(f"Preparing lightweight agent handoff: {output}/")
+        markdown_path, manifest_path = write_graph_handoff(graph, output)
+        print(f"  {markdown_path}")
+        print(f"  {manifest_path}")
+        return markdown_path, manifest_path
+
+    print(f"Shaping handwritten journey: {source}")
+    journey = shape_unstructured_journey(path.read_text(), filename=str(path))
+    print(f"Preparing lightweight agent handoff: {output}/")
+    _, markdown_path, manifest_path = write_natural_handoff(journey, output)
+    print(f"  {markdown_path}")
+    print(f"  {manifest_path}")
+    return markdown_path, manifest_path
+
+
 def _run_agent_qa(output: str) -> int:
     output_path = Path(output).resolve()
     if not output_path.name.isidentifier():
@@ -521,6 +635,8 @@ def _autonomous_agent_command() -> str | None:
 
 
 def _is_structured_journey(path: str) -> bool:
+    if Path(path).is_dir():
+        return False
     try:
         from ..parser import parse_file
 
@@ -528,6 +644,19 @@ def _is_structured_journey(path: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def _looks_linked_journey(path: Path) -> bool:
+    if not path.exists() or not path.is_file():
+        return False
+    text = path.read_text()
+    return "children:" in text or _contains_mapping_key(text, "parent") or _contains_mapping_key(text, "level")
+
+
+def _contains_mapping_key(text: str, key: str) -> bool:
+    import re
+
+    return bool(re.search(rf"^\s*{re.escape(key)}\s*:", text, re.MULTILINE))
 
 
 def _print_watch_dashboard(journey_name: str, checklist: list[str], completed: set[str], current_index: int | None):
@@ -617,6 +746,14 @@ def main():
     p_manifest.add_argument("-o", "--output", help="Output directory")
     _add_robustness_args(p_manifest)
 
+    # create
+    p_create = sub.add_parser("create", help="Create Journey files or a readable flow document")
+    p_create.add_argument("file", nargs="?", help="Path to a .journey file or project directory")
+    p_create.add_argument("-o", "--output", help="Output directory")
+    p_create.add_argument("--name", help="Name to use when scaffolding a new journey tree")
+    p_create.add_argument("--force", action="store_true", help="Overwrite scaffolded Journey files if they already exist")
+    p_create.add_argument("--filename", default="JOURNEY_FLOW.md", help="Output markdown filename")
+
     # agent
     p_agent = sub.add_parser("agent", help="Prepare a journey for an AI coding agent")
     p_agent.add_argument("file", help="Path to .journey file")
@@ -663,6 +800,8 @@ def main():
         cmd_validate(args)
     elif args.command == "manifest":
         cmd_manifest(args)
+    elif args.command == "create":
+        cmd_create(args)
     elif args.command == "agent":
         cmd_agent(args)
     elif args.command == "watch":

@@ -4,7 +4,16 @@ from argparse import Namespace
 import pytest
 
 from journey.adapters.fastapi import generate
-from journey.cli.main import _autonomous_agent_command, cmd_agent, cmd_execute, cmd_shape, cmd_watch
+from journey.cli.main import (
+    _autonomous_agent_command,
+    cmd_agent,
+    cmd_create,
+    cmd_execute,
+    cmd_inspect,
+    cmd_shape,
+    cmd_validate,
+    cmd_watch,
+)
 from journey.core.natural import shape_unstructured_journey
 from journey.core.config import RobustnessConfig
 from journey.core.normalize import normalize
@@ -128,6 +137,19 @@ def test_fastapi_adapter_uses_shared_slug_and_enum_literals(tmp_path):
     assert "stage=DealStage.discovery" in routes
 
 
+def test_fastapi_adapter_generates_runtime_config_hooks(tmp_path):
+    spec = parse_file("examples/auth_workspaces.journey")
+
+    generate(spec, tmp_path)
+
+    database = (tmp_path / "database.py").read_text()
+    routes = (tmp_path / "routes.py").read_text()
+    assert 'os.getenv("JOURNEY_DATABASE_URL", "sqlite:///./journey.db")' in database
+    assert 'connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}' in database
+    assert 'SESSION_TTL_HOURS = int(os.getenv("JOURNEY_SESSION_TTL_HOURS", "24"))' in routes
+    assert 'if session["expires_at"] <= datetime.now(timezone.utc):' in routes
+
+
 def test_adapter_raises_for_invalid_spec(tmp_path):
     spec = parse_string(
         '''
@@ -161,6 +183,136 @@ def test_agent_command_writes_handoff_without_tests(tmp_path):
     manifest = json.loads((tmp_path / "journey.agent.json").read_text())
     assert manifest["schema"] == "journey.agent.v1"
     assert manifest["slug"] == "journey-spine"
+
+
+def test_create_command_writes_route_and_feature_flow(tmp_path):
+    args = Namespace(file="examples/auth_workspaces.journey", output=str(tmp_path), filename="FLOW.md")
+
+    cmd_create(args)
+
+    flow = (tmp_path / "FLOW.md").read_text()
+    assert "# User Onboarding Journey Flow" in flow
+    assert "`POST` | `/journey/user-onboarding/signup`" in flow
+    assert "## Feature Flow" in flow
+    assert "### 1. signup" in flow
+    assert "transition `user.status` to `active`" in flow
+    assert "## Acceptance Walkthroughs" in flow
+
+
+def test_create_command_scaffolds_folder_level_journeys(tmp_path):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    args = Namespace(
+        file=str(tmp_path),
+        output=None,
+        filename="JOURNEY_FLOW.md",
+        name="Example App",
+        force=False,
+    )
+
+    cmd_create(args)
+
+    repo = tmp_path / ".journey" / "repo.journey"
+    page = tmp_path / ".journey" / "pages" / "dashboard.journey"
+    assert repo.exists()
+    assert page.exists()
+    assert "children:\n  - ./pages/dashboard.journey" in repo.read_text()
+    assert "parent: ../repo.journey" in page.read_text()
+    assert "source: ../../app/dashboard/page.tsx" in page.read_text()
+
+
+def test_create_command_treats_dotted_existing_path_as_directory(tmp_path):
+    project = tmp_path / "app.v1"
+    app_page = project / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    args = Namespace(
+        file=str(project),
+        output=None,
+        filename="JOURNEY_FLOW.md",
+        name="Dotted App",
+        force=False,
+    )
+
+    cmd_create(args)
+
+    assert (project / ".journey" / "repo.journey").exists()
+    assert (project / ".journey" / "pages" / "dashboard.journey").exists()
+
+
+def test_agent_command_uses_lightweight_graph_for_folder_journeys(tmp_path):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    create_args = Namespace(
+        file=str(tmp_path),
+        output=None,
+        filename="JOURNEY_FLOW.md",
+        name="Example App",
+        force=False,
+    )
+    cmd_create(create_args)
+    output = tmp_path / "handoff"
+    agent_args = Namespace(
+        file=str(tmp_path),
+        output=str(output),
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+        no_test=True,
+    )
+
+    cmd_agent(agent_args)
+
+    manifest = json.loads((output / "journey.agent.json").read_text())
+    markdown = (output / "JOURNEY.md").read_text()
+    assert manifest["mode"] == "lightweight"
+    assert len(manifest["journeys"]) == 2
+    assert "app runtime, database, or code generator" in markdown
+    assert "pages/dashboard.journey" in markdown
+
+
+def test_validate_accepts_lightweight_graph(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    capsys.readouterr()
+
+    cmd_validate(Namespace(file=str(tmp_path), strict=False))
+
+    assert capsys.readouterr().out.strip() == "ok"
+
+
+def test_validate_rejects_missing_lightweight_child(tmp_path):
+    journey_dir = tmp_path / ".journey"
+    journey_dir.mkdir()
+    (journey_dir / "repo.journey").write_text(
+        'journey "Broken App"\n\nlevel: repo\n\nchildren:\n  - ./pages/missing.journey\n'
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cmd_validate(Namespace(file=str(tmp_path), strict=False))
+
+    assert exc.value.code == 1
+
+
+def test_inspect_prints_lightweight_graph(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    capsys.readouterr()
+
+    cmd_inspect(Namespace(file=str(tmp_path), strict=False))
+
+    output = capsys.readouterr().out
+    assert "Journey Graph: Example App" in output
+    assert "pages/dashboard.journey" in output
+    assert "Validation:\n  ok" in output
 
 
 def test_watch_command_advances_one_deliverable(tmp_path):

@@ -100,6 +100,7 @@ def generate_routes(spec: JourneySpec) -> str:
         '"""',
         "",
         "from datetime import datetime, timedelta, timezone",
+        "import os",
         "from uuid import uuid4",
         "",
         "import bcrypt as _bcrypt",
@@ -127,12 +128,16 @@ def generate_routes(spec: JourneySpec) -> str:
         "",
         "# --- In-memory sessions (pluggable via journey config) ---",
         "",
+        "SESSION_TTL_HOURS = int(os.getenv(\"JOURNEY_SESSION_TTL_HOURS\", \"24\"))",
         "_sessions: dict[str, dict] = {}",
         "",
         "",
         "async def get_current_user(token: str, db: Session = Depends(get_db)):",
         '    session = _sessions.get(token)',
         '    if not session:',
+        '        raise HTTPException(status_code=401, detail="Invalid or expired token")',
+        '    if session["expires_at"] <= datetime.now(timezone.utc):',
+        "        _sessions.pop(token, None)",
         '        raise HTTPException(status_code=401, detail="Invalid or expired token")',
         '    from .models import User',
         '    user = db.query(User).filter(User.id == session["user_id"]).first()',
@@ -439,7 +444,7 @@ def _gen_call_action(action: Action, step: Step, spec: JourneySpec, variables: d
         user_var = _map_param_value(list(action.params.values())[0], step, variables)
         lines.extend([
             f"    token = uuid4().hex",
-            f"    expires = datetime.now(timezone.utc) + timedelta(hours=24)",
+            f"    expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)",
             f'    _sessions[token] = {{"user_id": {user_var}.id, "expires_at": expires}}',
         ])
         # Store synthetic variable for output mapping
