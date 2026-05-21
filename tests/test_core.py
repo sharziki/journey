@@ -233,8 +233,10 @@ def test_create_command_scaffolds_folder_level_journeys(tmp_path):
     assert "  - ./apis/leads.journey" in repo.read_text()
     assert "  - ./pages/dashboard.journey" in repo.read_text()
     assert "parent: ../repo.journey" in page.read_text()
+    assert "route: /dashboard" in page.read_text()
     assert "source: ../../app/dashboard/page.tsx" in page.read_text()
     assert "level: api" in api.read_text()
+    assert "route: /api/leads" in api.read_text()
     assert "source: ../../app/api/leads/route.ts" in api.read_text()
     flow_text = flow.read_text()
     assert "# Example App Journey Flow" in flow_text
