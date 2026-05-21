@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m pytest
+      - name: Lightweight graph checks
+        run: |
+          set -e
+          journey validate examples/lightweight_client_portal
+          journey doctor examples/lightweight_client_portal
+          journey diff examples/lightweight_client_portal --check
+          journey status examples/lightweight_client_portal
+      - name: Structured example checks
+        run: |
+          set -e
+          for file in examples/*.journey; do
+            journey validate "$file" --strict
+            journey test "$file" --robustness strict --clean
+          done
+      - name: Build package
+        run: |
+          python -m build
+          python -m twine check dist/*
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: journey-dist
+          path: dist/*
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: .github/releases/${{ github.ref_name }}.md
+          files: dist/*
