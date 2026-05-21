@@ -10,7 +10,9 @@ from journey.cli.main import (
     cmd_create,
     cmd_execute,
     cmd_inspect,
+    cmd_manifest,
     cmd_shape,
+    cmd_sync,
     cmd_validate,
     cmd_watch,
 )
@@ -201,8 +203,11 @@ def test_create_command_writes_route_and_feature_flow(tmp_path):
 
 def test_create_command_scaffolds_folder_level_journeys(tmp_path):
     app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    api_route = tmp_path / "app" / "api" / "leads" / "route.ts"
     app_page.parent.mkdir(parents=True)
+    api_route.parent.mkdir(parents=True)
     app_page.write_text("export default function Dashboard() { return null }\n")
+    api_route.write_text("export async function POST() { return Response.json({ ok: true }) }\n")
     args = Namespace(
         file=str(tmp_path),
         output=None,
@@ -215,11 +220,17 @@ def test_create_command_scaffolds_folder_level_journeys(tmp_path):
 
     repo = tmp_path / ".journey" / "repo.journey"
     page = tmp_path / ".journey" / "pages" / "dashboard.journey"
+    api = tmp_path / ".journey" / "apis" / "leads.journey"
     assert repo.exists()
     assert page.exists()
-    assert "children:\n  - ./pages/dashboard.journey" in repo.read_text()
+    assert api.exists()
+    assert "children:" in repo.read_text()
+    assert "  - ./apis/leads.journey" in repo.read_text()
+    assert "  - ./pages/dashboard.journey" in repo.read_text()
     assert "parent: ../repo.journey" in page.read_text()
     assert "source: ../../app/dashboard/page.tsx" in page.read_text()
+    assert "level: api" in api.read_text()
+    assert "source: ../../app/api/leads/route.ts" in api.read_text()
 
 
 def test_create_command_treats_dotted_existing_path_as_directory(tmp_path):
@@ -273,6 +284,54 @@ def test_agent_command_uses_lightweight_graph_for_folder_journeys(tmp_path):
     assert len(manifest["journeys"]) == 2
     assert "app runtime, database, or code generator" in markdown
     assert "pages/dashboard.journey" in markdown
+
+
+def test_manifest_command_uses_lightweight_graph_for_folder_journeys(tmp_path):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    output = tmp_path / "manifest"
+
+    cmd_manifest(
+        Namespace(
+            file=str(tmp_path),
+            output=str(output),
+            robustness="strict",
+            strict=False,
+            clean=True,
+            no_agent_manifest=False,
+            no_markdown_summary=False,
+        )
+    )
+
+    assert (output / "JOURNEY.md").exists()
+    assert json.loads((output / "journey.agent.json").read_text())["mode"] == "lightweight"
+
+
+def test_sync_adds_new_journeys_without_overwriting_existing_specs(tmp_path):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    page = tmp_path / ".journey" / "pages" / "dashboard.journey"
+    page.write_text(page.read_text() + "\ncustom note: keep this\n")
+
+    settings_page = tmp_path / "app" / "settings" / "page.tsx"
+    api_route = tmp_path / "app" / "api" / "leads" / "route.ts"
+    settings_page.parent.mkdir(parents=True)
+    api_route.parent.mkdir(parents=True)
+    settings_page.write_text("export default function Settings() { return null }\n")
+    api_route.write_text("export async function POST() { return Response.json({ ok: true }) }\n")
+
+    cmd_sync(Namespace(file=str(tmp_path), name="Example App", force=False))
+
+    repo = (tmp_path / ".journey" / "repo.journey").read_text()
+    assert "custom note: keep this" in page.read_text()
+    assert (tmp_path / ".journey" / "pages" / "settings.journey").exists()
+    assert (tmp_path / ".journey" / "apis" / "leads.journey").exists()
+    assert "./pages/settings.journey" in repo
+    assert "./apis/leads.journey" in repo
 
 
 def test_validate_accepts_lightweight_graph(tmp_path, capsys):

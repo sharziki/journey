@@ -46,6 +46,12 @@ journey agent .
 
 Those commands create a linked `.journey` map for the project, then write an agent handoff from that file graph. No database, server, or code generator is required.
 
+When files change, rescan without overwriting edited journey specs:
+
+```bash
+journey sync .
+```
+
 For the optional FastAPI backend adapter, run:
 
 ```bash
@@ -85,7 +91,7 @@ If a project does not have a journey yet, scaffold a linked journey tree:
 journey create .
 ```
 
-That writes `.journey/repo.journey` plus page-level journeys under `.journey/pages/`. The repo journey links to the page journeys so people can read the product flow by folder and page instead of clicking through the running app.
+That writes `.journey/repo.journey` plus page-level journeys under `.journey/pages/` and API journeys under `.journey/apis/`. The repo journey links to the child journeys so people can read the product flow by folder, page, and route instead of clicking through the running app.
 
 The generated project lives at:
 
@@ -264,6 +270,7 @@ journey watch product.journey \
 |---------|--------------|
 | `journey agent <path>` | Write agent handoff files from a lightweight journey graph, or run adapter generation for a structured backend journey |
 | `journey create [path]` | Create linked repo/page journeys, or write a route and feature flow document for an existing `.journey` |
+| `journey sync [path]` | Rescan a project and add missing page/API journeys without overwriting edited specs |
 | `journey execute <file> --autonomous` | Run the deliverable-by-deliverable builder/QA loop with a local agent runtime |
 | `journey watch <file>` | Lower-level watch loop for custom agent commands |
 | `journey compile <file>` | Optional adapter: generate a FastAPI project |
@@ -271,7 +278,7 @@ journey watch product.journey \
 | `journey run <file>` | Optional adapter: compile and start the generated FastAPI app with uvicorn |
 | `journey inspect <path>` | Print a lightweight journey graph or structured journey AST |
 | `journey validate <path>` | Validate graph links or structured cross-references before generation |
-| `journey manifest <file>` | Generate `JOURNEY.md` and `journey.agent.json` |
+| `journey manifest <path>` | Generate `JOURNEY.md` and `journey.agent.json` from a lightweight graph or structured journey |
 | `journey shape <file>` | Shape loose natural-language input into a handoff |
 
 ## Handwritten Journeys
@@ -351,6 +358,7 @@ Journey is v0.1 alpha.
 Working today:
 
 - lightweight linked repo/page journeys under `.journey/`
+- API route journeys under `.journey/apis/`
 - folder-level agent handoffs with no database or runtime requirement
 - graph-aware `inspect` and `validate` commands for linked journeys
 - structured `.journey` syntax
@@ -363,6 +371,7 @@ Working today:
 - machine-readable `journey.agent.json`
 - `agent`, `execute`, `watch`, `shape`, `compile`, `test`, `run`, `inspect`, `validate`, and `manifest` commands
 - `create` for linked folder-level journeys and existing-journey flow documents
+- `sync` for adding newly discovered page/API journeys without overwriting edited specs
 
 Still early:
 

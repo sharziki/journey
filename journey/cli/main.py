@@ -234,11 +234,20 @@ def cmd_manifest(args):
     from ..parser import parse_file
     from ..adapters.markdown import write_markdown
     from ..adapters.fastapi import _write_agent_manifest
+    from ..core.graph import load_journey_graph, write_graph_handoff
 
     source = args.file
-    output = args.output or _default_output_dir(source)
+    structured = _is_structured_journey(source)
+    output = args.output or (_default_output_dir(source) if structured else str(Path(".journey") / "handoff"))
     out = Path(output)
     out.mkdir(parents=True, exist_ok=True)
+    if not structured:
+        graph = load_journey_graph(source)
+        files = write_graph_handoff(graph, out)
+        for path in files:
+            print(path)
+        return
+
     spec = parse_file(source)
     files = [
         write_markdown(spec, out),
@@ -270,6 +279,19 @@ def cmd_create(args):
     for path in result.files:
         print(f"  {path}")
     print("Read repo.journey first, then follow children to the page-level journeys.")
+
+
+def cmd_sync(args):
+    """Sync a folder-level Journey graph with the project tree."""
+    from ..core.scaffold import sync_journeys
+
+    source = Path(args.file or ".")
+    target = source if source.is_dir() or source.suffix == "" else source.parent
+    result = sync_journeys(target, name=args.name, force=args.force)
+    print(f"Synced folder-level journeys in {result.root}/")
+    for path in result.files:
+        print(f"  {path}")
+    print("Existing child journeys were preserved unless --force was used.")
 
 
 def cmd_agent(args):
@@ -754,6 +776,12 @@ def main():
     p_create.add_argument("--force", action="store_true", help="Overwrite scaffolded Journey files if they already exist")
     p_create.add_argument("--filename", default="JOURNEY_FLOW.md", help="Output markdown filename")
 
+    # sync
+    p_sync = sub.add_parser("sync", help="Sync linked Journey files with discovered pages and API routes")
+    p_sync.add_argument("file", nargs="?", help="Path to a project directory")
+    p_sync.add_argument("--name", help="Name to use for the repo journey")
+    p_sync.add_argument("--force", action="store_true", help="Overwrite existing Journey files")
+
     # agent
     p_agent = sub.add_parser("agent", help="Prepare a journey for an AI coding agent")
     p_agent.add_argument("file", help="Path to .journey file")
@@ -802,6 +830,8 @@ def main():
         cmd_manifest(args)
     elif args.command == "create":
         cmd_create(args)
+    elif args.command == "sync":
+        cmd_sync(args)
     elif args.command == "agent":
         cmd_agent(args)
     elif args.command == "watch":

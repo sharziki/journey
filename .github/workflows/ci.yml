@@ -20,6 +20,18 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Unit tests
         run: python -m pytest
+      - name: Lightweight graph smoke
+        run: |
+          set -e
+          tmpdir="$(mktemp -d)"
+          mkdir -p "$tmpdir/app/dashboard" "$tmpdir/app/api/leads"
+          printf 'export default function Dashboard() { return null }\n' > "$tmpdir/app/dashboard/page.tsx"
+          printf 'export async function POST() { return Response.json({ ok: true }) }\n' > "$tmpdir/app/api/leads/route.ts"
+          journey create "$tmpdir" --name "Smoke App"
+          journey sync "$tmpdir" --name "Smoke App"
+          journey validate "$tmpdir"
+          journey manifest "$tmpdir" -o "$tmpdir/handoff"
+          journey agent "$tmpdir" --no-test -o "$tmpdir/agent"
       - name: Validate examples
         run: |
           set -e
