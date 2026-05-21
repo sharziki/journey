@@ -1,6 +1,6 @@
 # Production Readiness
 
-Journey `v0.2.10` is the current production-ready beta release for:
+Journey `v0.2.11` is the current production-ready beta release for:
 
 - lightweight `.journey` repo/page/API graphs
 - agent handoff generation
@@ -11,13 +11,13 @@ Journey `v0.2.10` is the current production-ready beta release for:
 ## Install
 
 ```bash
-python -m pip install https://github.com/sharziki/journey/releases/download/v0.2.10/journey_lang-0.2.10-py3-none-any.whl
+python -m pip install https://github.com/sharziki/journey/releases/download/v0.2.11/journey_lang-0.2.11-py3-none-any.whl
 ```
 
 For hash-verified wheel installs:
 
 ```bash
-curl -LO https://github.com/sharziki/journey/releases/download/v0.2.10/journey-install-requirements.txt
+curl -LO https://github.com/sharziki/journey/releases/download/v0.2.11/journey-install-requirements.txt
 python -m pip install -r journey-install-requirements.txt
 ```
 
@@ -25,9 +25,9 @@ PyPI publishing is not enabled yet because PyPI Trusted Publishing still needs t
 
 ## Release Artifact
 
-- Release: <https://github.com/sharziki/journey/releases/tag/v0.2.10>
-- Wheel: `journey_lang-0.2.10-py3-none-any.whl`
-- Source distribution: `journey_lang-0.2.10.tar.gz`
+- Release: <https://github.com/sharziki/journey/releases/tag/v0.2.11>
+- Wheel: `journey_lang-0.2.11-py3-none-any.whl`
+- Source distribution: `journey_lang-0.2.11.tar.gz`
 - Checksums: `SHA256SUMS`
 - Hash-verified install file: `journey-install-requirements.txt`
 
@@ -38,7 +38,7 @@ The production install path was verified from a fresh virtual environment using 
 ```bash
 python -m venv /tmp/journey-verify/venv
 /tmp/journey-verify/venv/bin/python -m pip install \
-  https://github.com/sharziki/journey/releases/download/v0.2.10/journey_lang-0.2.10-py3-none-any.whl
+  https://github.com/sharziki/journey/releases/download/v0.2.11/journey_lang-0.2.11-py3-none-any.whl
 /tmp/journey-verify/venv/bin/journey validate library_borrowing.journey --strict
 /tmp/journey-verify/venv/bin/journey test library_borrowing.journey --robustness strict --clean
 ```
@@ -58,9 +58,10 @@ library_borrowing/test_journey.py::TestMemberBorrowsAndReturnsABook::test_member
 - `journey doctor examples/lightweight_client_portal`
 - `journey diff examples/lightweight_client_portal --check`
 - strict validation and generated acceptance tests for every `examples/*.journey`
-- clean install from the public `v0.2.10` GitHub release wheel
+- clean install from the public `v0.2.11` GitHub release wheel
 - `pip check` for installed artifact dependency metadata
 - built-artifact smoke tests for wheel and source distribution via `scripts/e2e_wheel_smoke.sh`
+- public-release smoke tests for published wheel, source distribution, checksums, and hash-verified install metadata via `scripts/e2e_public_release_smoke.sh`
 - SHA256 checksum generation and verification for release artifacts
 - hash-verified install file generation
 - `python -m build`

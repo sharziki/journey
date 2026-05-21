@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.11
+
+- Added a public GitHub release artifact e2e smoke that downloads published assets, verifies checksums, installs through the hash-pinned requirements file, runs `pip check`, and executes generated acceptance from the public install.
+- Added the public release artifact smoke to the tag release workflow after release upload.
+
 ## 0.2.10
 
 - Added `pip check` to the installed-artifact e2e smoke so wheel and sdist installs must have consistent dependency metadata.
