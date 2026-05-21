@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.2.3
+
+- Added end-to-end CLI coverage for the lightweight `journey create .` workflow, including `doctor --strict`, `agent --no-test`, handoff generation, `JOURNEY_FLOW.md`, and `status`.
+- Added a built-wheel install smoke script that installs the generated wheel into a fresh virtual environment and verifies both a structured backend journey and a lightweight folder-level journey.
+- Added the built-wheel smoke to CI and the release workflow so release artifacts are tested before upload.
+- Updated GitHub Actions to Node 24-native action versions.
+- Documented the production readiness release checks.
+
 ## 0.2.2
 
 - Removed automatic PyPI publishing from the release workflow until PyPI Trusted Publishing is configured for this repository.
