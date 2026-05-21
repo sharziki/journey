@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "journey-lang"
 version = "0.1.0"
-description = "Journey — a universal story format for software agents. Write the journey; agents build, test, and repair the software."
+description = "Journey maps repo, page, API, and acceptance intent into lightweight files that coding agents can read, validate, and repair against."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [
     { name = "Journey contributors" },
 ]
-keywords = ["agents", "codegen", "fastapi", "pytest", "dsl", "ai"]
+keywords = ["agents", "journey", "product-intent", "codegen", "fastapi", "pytest", "ai"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

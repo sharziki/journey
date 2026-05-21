@@ -1,8 +1,8 @@
 <p align="center">
   <h1 align="center">Journey</h1>
   <p align="center">
-    <strong>Executable product stories for coding agents.</strong><br/>
-    Write the workflow once. Journey turns it into code, tests, docs, and an agent handoff.
+    <strong>Lightweight product maps for coding agents.</strong><br/>
+    Keep repo intent, pages, API routes, acceptance, and agent handoffs in linked `.journey` files.
   </p>
 </p>
 
@@ -26,43 +26,56 @@
   <img src="docs/assets/journey-hero.png" alt="Journey turns product stories into generated code, tests, and agent workflows." width="100%">
 </p>
 
-Journey is a small open-source language and CLI for mapping product intent in `.journey` files.
+Journey is a small open-source CLI for mapping product intent in `.journey` files.
 
-Core Journey is lightweight: it creates, links, validates, and summarizes repo/page/flow journeys without requiring a database, server, or generated app.
+Core Journey is lightweight: it creates, links, validates, and summarizes repo/page/API journeys without requiring a database, server, framework, or generated app.
 
-The optional FastAPI adapter compiles structured journeys into a working backend with SQLAlchemy models, Pydantic schemas, route handlers, generated pytest acceptance tests, and agent-readable handoff files.
+Adapters are optional. The first adapter compiles structured backend journeys into a working FastAPI app with SQLAlchemy models, Pydantic schemas, route handlers, generated pytest acceptance tests, and agent-readable handoff files.
 
 The bigger idea is simple: agents should not start from scattered prompts. They should read the project spine, build against it, test against it, and repair drift when the code no longer matches the story.
 
 ## 2 Minute Quickstart
+
+Create a lightweight journey map for any repo:
 
 ```bash
 git clone https://github.com/sharziki/journey.git
 cd journey
 python -m pip install -e ".[dev]"
 journey create .
-journey agent .
+journey status .
 ```
 
-Those commands create a linked `.journey` map for the project, then write an agent handoff from that file graph. No database, server, or code generator is required.
+That writes a linked `.journey` graph:
 
-When files change, rescan without overwriting edited journey specs:
+```text
+.journey/
+├── repo.journey
+├── pages/*.journey
+├── apis/*.journey
+└── README.md
+```
+
+Then use the graph:
 
 ```bash
+journey validate .
 journey sync .
 journey doctor .
 journey diff .
-journey status .
+journey agent .
 journey watch . --once
 ```
 
-For the optional FastAPI backend adapter, run:
+No database, server, or code generator is required for the core workflow.
+
+Use the optional FastAPI adapter when you want generated backend code:
 
 ```bash
 journey agent examples/auth_workspaces.journey
 ```
 
-That command reads a structured backend journey, generates the FastAPI implementation, writes the agent handoff, and runs the generated acceptance tests.
+That reads a structured backend journey, generates FastAPI code, writes the agent handoff, and runs generated acceptance tests.
 
 You should see:
 
@@ -71,7 +84,7 @@ You should see:
 Journey accepted: generated implementation satisfies current acceptance tests.
 ```
 
-Run the generated API:
+Run the optional generated API:
 
 ```bash
 journey run examples/auth_workspaces.journey
@@ -83,21 +96,13 @@ Open:
 http://127.0.0.1:8000/docs
 ```
 
-Create a readable route and feature map without opening the app:
+Create a readable route and feature map for a structured backend journey:
 
 ```bash
 journey create examples/auth_workspaces.journey
 ```
 
-If a project does not have a journey yet, scaffold a linked journey tree:
-
-```bash
-journey create .
-```
-
-That writes `.journey/repo.journey` plus page-level journeys under `.journey/pages/` and API journeys under `.journey/apis/`. The repo journey links to the child journeys so people can read the product flow by folder, page, and route instead of clicking through the running app.
-
-The generated project lives at:
+The optional generated backend lives at:
 
 ```text
 generated/auth_workspaces/
@@ -115,11 +120,11 @@ generated/auth_workspaces/
 
 | Before Journey | After Journey |
 |----------------|---------------|
-| Product behavior lives in prompts, tickets, docs, and memory | Product behavior lives in one `.journey` source of truth |
+| Product behavior lives in prompts, tickets, docs, and memory | Product behavior lives in linked `.journey` files |
 | Agents repeatedly ask for context | Agents read `JOURNEY.md` and `journey.agent.json` |
-| Backend routes, models, and tests drift apart | Code and acceptance tests are generated from the same workflow |
-| "Done" is subjective | `journey agent` and `journey test` prove the current contract |
-| New contributors must reverse-engineer intent | New contributors start with the journey file and examples |
+| New pages and routes appear without product context | `journey sync`, `doctor`, and `diff` expose drift |
+| "Done" is subjective | journey acceptance and project QA give agents a checklist |
+| New contributors must reverse-engineer intent | New contributors start with the journey graph |
 
 ## Demo
 
@@ -127,7 +132,7 @@ generated/auth_workspaces/
   <img src="docs/assets/journey-terminal-demo.svg" alt="Terminal demo showing Journey generating files and passing acceptance tests." width="100%">
 </p>
 
-The current demo is a screenshot-style terminal capture. A short GIF belongs here next: write a journey, run `journey agent`, open `/docs`, and show the generated acceptance test passing.
+The current demo is a screenshot-style terminal capture. A short GIF belongs here next: create a journey graph, run `journey status`, `journey doctor`, and `journey watch . --once`.
 
 ## How It Works
 
@@ -137,7 +142,7 @@ Core mode:
 repo folder
      |
      v
-.journey/repo.journey + linked page journeys
+.journey/repo.journey + linked page/API journeys
      |
      v
 Journey graph resolver
@@ -167,9 +172,9 @@ Generated pytest acceptance tests
 Agent repair loop
 ```
 
-The `.journey` file is the portable contract. The generated code is ordinary app code that you can inspect, edit, test, deploy, or replace with another adapter later.
+The `.journey` graph is the portable product contract. Generated code is optional adapter output that you can inspect, edit, test, deploy, or replace later.
 
-## A Tiny Journey
+## Structured Adapter Example
 
 ```journey
 journey "Auth API" {
@@ -195,7 +200,7 @@ journey "Auth API" {
 }
 ```
 
-Journey turns structured flows like this into:
+The FastAPI adapter turns structured flows like this into:
 
 - SQLAlchemy models
 - Pydantic request/response schemas
@@ -208,7 +213,7 @@ Journey turns structured flows like this into:
 
 ## Examples
 
-The repo includes working journeys you can run today:
+The repo includes structured backend examples you can run today:
 
 | Example | What it proves | Try it |
 |---------|----------------|--------|
@@ -228,7 +233,7 @@ done
 
 ## Dogfooding Journey
 
-Journey uses `.journey` files as its own project spine.
+Journey uses `.journey` files as its own project spine. For this repo, the structured examples still provide the strongest acceptance coverage:
 
 When an agent enters this repo, it should:
 
@@ -249,16 +254,16 @@ That handoff tells the agent what the product is, what still needs to be built, 
 
 ## Agent Mode
 
-Use this when you want Journey to prepare the workspace and run acceptance without spawning another agent:
+Use this when you want Journey to prepare a handoff without spawning another agent:
 
 ```bash
-journey agent <file.journey>
+journey agent .
 ```
 
 Use this when a local coding-agent runtime is configured and you want the deliverable loop:
 
 ```bash
-journey execute <file.journey> --autonomous
+journey execute . --autonomous
 ```
 
 `execute --autonomous` currently auto-detects Codex CLI when available. If you use another runtime, set `JOURNEY_AGENT_COMMAND` or use `journey watch`.
@@ -266,6 +271,13 @@ journey execute <file.journey> --autonomous
 ```bash
 journey watch product.journey \
   --agent-command "codex exec \"Work on: {item}. Read {handoff_md} and {handoff_json}.\""
+```
+
+Structured backend journeys still work with the same commands:
+
+```bash
+journey agent examples/auth_workspaces.journey
+journey execute examples/auth_workspaces.journey --autonomous
 ```
 
 ## CLI Reference
@@ -316,17 +328,19 @@ page "Invite Teammate":
     - duplicate invitation is rejected
 ```
 
-The v0.1 compiler generates code from the structured backend syntax in `examples/*.journey`. Loose handwritten journeys can already be shaped into a readable handoff:
+Loose handwritten journeys can already be shaped into a readable handoff:
 
 ```bash
 journey shape idea.journey
 ```
 
+The FastAPI adapter also compiles the structured backend syntax in `examples/*.journey`.
+
 See [docs/handwritten-journey-format.md](docs/handwritten-journey-format.md) and [docs/design.md](docs/design.md).
 
 ## Adapters Roadmap
 
-FastAPI is the first working adapter. The point of Journey is that the `.journey` file should outlive any one framework.
+FastAPI is the first working codegen adapter. The point of Journey is that the `.journey` graph should outlive any one framework.
 
 Planned adapters:
 
@@ -364,8 +378,7 @@ Journey is v0.1 alpha.
 
 Working today:
 
-- lightweight linked repo/page journeys under `.journey/`
-- API route journeys under `.journey/apis/`
+- lightweight linked repo/page/API journeys under `.journey/`
 - folder-level agent handoffs with no database or runtime requirement
 - graph-aware `inspect` and `validate` commands for linked journeys
 - `doctor` health checks for missing links, orphan journeys, stale sources, missing specs, and acceptance gaps
@@ -380,28 +393,23 @@ Working today:
 - generated pytest acceptance tests
 - agent-facing `JOURNEY.md`
 - machine-readable `journey.agent.json`
-- `agent`, `execute`, `watch`, `shape`, `compile`, `test`, `run`, `inspect`, `validate`, and `manifest` commands
-- `create` for linked folder-level journeys and existing-journey flow documents
-- `sync` for adding newly discovered page/API journeys without overwriting edited specs
-- `doctor` for checking whether the lightweight journey map is healthy
-- `diff` for showing journey drift without changing files
-- `status` for seeing coverage, drift, and the next command quickly
-- lightweight `watch` and `execute` support for linked journey graphs
 
 Still early:
 
-- natural-language journeys are a direction, not the main compiler target yet
-- FastAPI is the only production codegen adapter today
+- natural-language journeys are agent-readable today, but not yet a full codegen target
+- FastAPI is the only codegen adapter today
 - autonomous execution depends on a configured local agent runtime
 - the codegen needs more examples to force generalization
 
 ## Roadmap
 
+- [x] Agent handoff files: `JOURNEY.md` and `journey.agent.json`
+- [x] Lightweight folder-level Journey graph handoff
+- [x] `create`, `sync`, `status`, `doctor`, and `diff` for lightweight graphs
+- [x] Lightweight `watch` and `execute`
 - [x] Structured v0.1 syntax: entities, steps, state machines, tests
 - [x] Parser: lexer + recursive descent to typed AST
 - [x] FastAPI code generation: models, schemas, routes, tests
-- [x] Agent handoff files: `JOURNEY.md` and `journey.agent.json`
-- [x] Lightweight folder-level Journey graph handoff
 - [x] SaaS auth/workspaces example
 - [x] CRM example
 - [x] AI receptionist backend example
@@ -409,6 +417,8 @@ Still early:
 - [x] Journey dogfoods itself with `examples/journey_spine.journey`
 - [ ] GIF demo for README
 - [ ] Natural-language journey sections as first-class compiler input
+- [ ] More framework route detectors for `journey create` / `sync`
+- [ ] Journey graph editor/refinement commands
 - [ ] Generic action/event system for emails, webhooks, tasks, and side effects
 - [ ] Repair ledger for failed checks and drift
 - [ ] OpenAPI export
