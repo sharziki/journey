@@ -1,0 +1,128 @@
+journey "Workspace Invite"
+
+design: ./design.md
+
+mission:
+  Let a workspace owner invite a teammate and know exactly what happened.
+  The system should feel clear, trustworthy, and hard to misuse.
+
+pages:
+  - Signup
+  - Verify Email
+  - Workspace Home
+  - Invite Teammate
+  - Accept Invite
+
+flows:
+  onboarding:
+    first: Signup
+    then: Verify Email
+    then: Workspace Home
+
+  invite teammate:
+    first: Workspace Home
+    then: Invite Teammate
+    then: Accept Invite
+
+page "Signup":
+  purpose:
+    Create a pending user account.
+
+  user sees:
+    - email input
+    - password input
+    - create account button
+    - clear duplicate-email error
+
+  rules:
+    - email is required
+    - password must be at least 8 characters
+    - duplicate emails are rejected
+
+  acceptance:
+    - valid signup creates a pending user
+    - duplicate signup returns a 409-style error
+    - generated tests cover both cases
+
+page "Invite Teammate":
+  purpose:
+    Let a workspace owner invite another person by email and role.
+
+  user sees:
+    - teammate email
+    - role selector
+    - send invite button
+    - invitation status
+
+  rules:
+    - only workspace owners can invite
+    - role is admin, member, or viewer
+    - already-invited emails show a useful error
+
+  acceptance:
+    - owner can invite a teammate
+    - non-owner cannot invite
+    - duplicate invitation is rejected
+
+entity User {
+  email       string  unique
+  password    string  hashed
+  status      state(pending -> active -> suspended)
+  created_at  timestamp  auto
+}
+
+entity Invitation {
+  email       string
+  role        enum(admin, member, viewer)
+  status      state(pending -> accepted -> expired)
+  token       string  unique  auto
+  created_at  timestamp  auto
+}
+
+step signup {
+  actor anonymous
+  input {
+    email     string  required  format(email)
+    password  string  required  min(8)
+  }
+  action {
+    user = create User(email: input.email, password: input.password, status: pending)
+  }
+  output {
+    user_id   user.id
+    message   "Check your email to verify your account"
+  }
+  errors {
+    email_taken  "A user with this email already exists"  409
+  }
+}
+
+test "full signup" {
+  do signup(email: "alice@example.com", password: "securepass123")
+    expect status 201
+    expect output.user_id exists
+    capture user_id
+
+  do signup(email: "alice@example.com", password: "differentpass")
+    expect status 409
+    expect error email_taken
+}
+
+acceptance:
+  - owner can invite a teammate
+  - non-owner cannot invite
+  - duplicate invitation is rejected
+  - every page has implementation
+  - every flow has acceptance coverage
+
+crew:
+  planner: Find the next page, flow, or acceptance item not represented in code.
+  builder: Implement the missing behavior.
+  tester: Turn acceptance bullets into repeatable checks.
+  cleanup: Compare code, tests, docs, and generated artifacts against this journey.
+
+done when:
+  - every page has implementation or an explicit open question
+  - every flow has acceptance coverage
+  - design.md has been followed or cited exceptions are written down
+  - cleanup reports no open drift

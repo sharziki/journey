@@ -33,7 +33,7 @@ Core Journey is lightweight: it creates, links, validates, and summarizes repo/p
 
 Adapters are optional. The first adapter compiles structured backend journeys into a working FastAPI app with SQLAlchemy models, Pydantic schemas, route handlers, generated pytest acceptance tests, and agent-readable handoff files.
 
-Current production-ready beta: [`v0.2.12`](https://github.com/sharziki/journey/releases/tag/v0.2.12). See [production readiness](docs/production-readiness.md) for the verified e2e release checks and install path.
+Current production-ready beta: [`v0.2.13`](https://github.com/sharziki/journey/releases/tag/v0.2.13). See [production readiness](docs/production-readiness.md) for the verified e2e release checks and install path.
 
 The bigger idea is simple: agents should not start from scattered prompts. They should read the project spine, build against it, test against it, and repair drift when the code no longer matches the story.
 
@@ -42,7 +42,7 @@ The bigger idea is simple: agents should not start from scattered prompts. They 
 Install Journey, then create a lightweight journey map for any repo:
 
 ```bash
-python -m pip install https://github.com/sharziki/journey/releases/download/v0.2.12/journey_lang-0.2.12-py3-none-any.whl
+python -m pip install https://github.com/sharziki/journey/releases/download/v0.2.13/journey_lang-0.2.13-py3-none-any.whl
 journey create .
 journey status .
 ```
@@ -232,6 +232,7 @@ The repo includes a lightweight graph example and structured backend examples yo
 | Example | What it proves | Try it |
 |---------|----------------|--------|
 | `examples/lightweight_client_portal` | Repo/page/API journey graph with no database or generated app | `journey status examples/lightweight_client_portal` |
+| `examples/hybrid_workspace_invite.journey` | Hybrid natural-language + structured blocks in one file | `journey inspect examples/hybrid_workspace_invite.journey` |
 
 Structured adapter examples:
 
@@ -324,9 +325,9 @@ journey execute examples/auth_workspaces.journey --autonomous
 | `journey manifest <path>` | Generate `JOURNEY.md` and `journey.agent.json` from a lightweight graph or structured journey |
 | `journey shape <file>` | Shape loose natural-language input into a handoff |
 
-## Handwritten Journeys
+## Hybrid Journeys
 
-The long-term format is natural-language first:
+Journey files can mix natural-language sections with structured blocks in one file:
 
 ```journey
 journey "Workspace Invite"
@@ -346,19 +347,56 @@ page "Invite Teammate":
   purpose:
     Let a workspace owner invite another person by email and role.
 
+  user sees:
+    - teammate email
+    - role selector
+    - send invite button
+
   acceptance:
     - owner can invite a teammate
     - non-owner cannot invite
     - duplicate invitation is rejected
+
+entity User {
+  email string unique
+  password string hashed
+}
+
+step signup {
+  actor anonymous
+  input { email string required format(email) }
+  action { user = create User(email: input.email, password: input.password) }
+  output { user_id user.id }
+}
+
+acceptance:
+  - core flow works end to end
+
+crew:
+  planner: Find the next missing item.
+  builder: Implement the missing behavior.
+
+done when:
+  - every page has implementation
+  - cleanup reports no drift
 ```
 
-Loose handwritten journeys can already be shaped into a readable handoff:
+Hybrid files are first-class compiler input. Every CLI command works with them:
+
+```bash
+journey validate examples/hybrid_workspace_invite.journey
+journey inspect examples/hybrid_workspace_invite.journey
+journey status examples/hybrid_workspace_invite.journey
+journey agent examples/hybrid_workspace_invite.journey --no-test
+journey watch examples/hybrid_workspace_invite.journey --once
+journey execute examples/hybrid_workspace_invite.journey --autonomous
+```
+
+Loose handwritten journeys without structured blocks can also be shaped into a handoff:
 
 ```bash
 journey shape idea.journey
 ```
-
-The FastAPI adapter also compiles the structured backend syntax in `examples/*.journey`.
 
 See [docs/handwritten-journey-format.md](docs/handwritten-journey-format.md) and [docs/design.md](docs/design.md).
 
@@ -389,7 +427,7 @@ Other useful targets:
 
 ```text
 journey/
-├── parser/      # lexer, recursive descent parser, AST dataclasses
+├── parser/      # lexer, recursive descent parser, hybrid parser, AST dataclasses
 ├── core/        # validation, normalization, config
 ├── codegen/     # FastAPI, SQLAlchemy, Pydantic, pytest generation
 ├── adapters/    # adapter wrappers and markdown handoff output
@@ -398,11 +436,12 @@ journey/
 
 ## Status
 
-Journey is v0.2.12 beta. The core lightweight journey graph workflow and FastAPI adapter are usable today, with CI covering unit tests, shipped examples, generated acceptance tests, package builds, installed-artifact e2e, dependency metadata checks, checksums, hash-verified install metadata, release artifacts, public-release install verification, and tag/version release preflight checks.
+Journey is v0.2.13 beta. The core lightweight journey graph workflow, hybrid natural-language parser, and FastAPI adapter are usable today, with CI covering unit tests, shipped examples, generated acceptance tests, package builds, installed-artifact e2e, dependency metadata checks, checksums, hash-verified install metadata, release artifacts, public-release install verification, and tag/version release preflight checks.
 
 Working today:
 
 - lightweight linked repo/page/API journeys under `.journey/`
+- hybrid journeys: natural-language sections + structured blocks in one file
 - folder-level agent handoffs with no database or runtime requirement
 - graph-aware `inspect` and `validate` commands for linked journeys
 - `doctor` health checks for missing links, orphan journeys, stale sources, missing specs, and acceptance gaps
@@ -420,7 +459,6 @@ Working today:
 
 Still early:
 
-- natural-language journeys are agent-readable today, but not yet a full codegen target
 - FastAPI is the only codegen adapter today
 - autonomous execution depends on a configured local agent runtime
 - the codegen should keep gaining examples across domains to force generalization
@@ -441,7 +479,7 @@ Still early:
 - [x] Library borrowing example with authenticated member/session flow
 - [x] Journey dogfoods itself with `examples/journey_spine.journey`
 - [ ] GIF demo for README
-- [ ] Natural-language journey sections as first-class compiler input
+- [x] Natural-language journey sections as first-class compiler input
 - [ ] More framework route detectors for `journey create` / `sync`
 - [ ] Journey graph editor/refinement commands
 - [ ] Generic action/event system for emails, webhooks, tasks, and side effects

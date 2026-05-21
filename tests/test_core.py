@@ -1022,3 +1022,360 @@ def test_execute_unstructured_autonomous_advances_one_item(tmp_path, monkeypatch
     assert state_files
     state = json.loads(state_files[0].read_text())
     assert state["completed"]
+
+
+# ---------------------------------------------------------------------------
+# Hybrid journey tests
+# ---------------------------------------------------------------------------
+
+
+from journey.parser import parse_string_auto, parse_file_auto, is_hybrid_source
+from journey.parser.ast_nodes import HybridJourneySpec, JourneySpec
+from journey.parser.hybrid import parse_hybrid
+from journey.core.validation import validate_hybrid
+from journey.core.normalize import normalize_hybrid
+
+
+HYBRID_EXAMPLE = '''\
+journey "Workspace Invite"
+
+design: ./design.md
+
+mission:
+  Let a workspace owner invite a teammate.
+
+pages:
+  - Signup
+  - Dashboard
+
+flows:
+  onboarding:
+    first: Signup
+    then: Dashboard
+
+page "Signup":
+  purpose:
+    Create a pending user account.
+
+  user sees:
+    - email input
+    - password input
+
+  rules:
+    - email is required
+
+  acceptance:
+    - valid signup creates a pending user
+
+entity User {
+  email string unique
+  password string hashed
+}
+
+step signup {
+  actor anonymous
+  input {
+    email string required format(email)
+    password string required min(8)
+  }
+  action {
+    user = create User(email: input.email, password: input.password)
+  }
+  output {
+    user_id user.id
+  }
+  errors {
+    email_taken "Already exists" 409
+  }
+}
+
+test "signup works" {
+  do signup(email: "a@b.com", password: "securepass")
+    expect status 201
+    capture user_id
+}
+
+acceptance:
+  - core flow works end to end
+  - important failures are handled
+
+crew:
+  planner: Find the next missing item.
+  builder: Implement the missing behavior.
+
+done when:
+  - every page has implementation
+  - cleanup reports no drift
+'''
+
+
+def test_is_hybrid_source_detects_hybrid():
+    assert is_hybrid_source(HYBRID_EXAMPLE)
+
+
+def test_is_hybrid_source_rejects_structured():
+    structured = 'journey "Test" {\n  entity Foo { bar string }\n}'
+    assert not is_hybrid_source(structured)
+
+
+def test_hybrid_parser_extracts_all_sections():
+    spec = parse_hybrid(HYBRID_EXAMPLE)
+
+    assert spec.name == "Workspace Invite"
+    assert spec.design == "./design.md"
+    assert "invite a teammate" in spec.mission
+    assert spec.page_names == ["Signup", "Dashboard"]
+    assert len(spec.pages) == 1
+    assert spec.pages[0].name == "Signup"
+    assert spec.pages[0].purpose == "Create a pending user account."
+    assert "email input" in spec.pages[0].user_sees
+    assert "email is required" in spec.pages[0].rules
+    assert "valid signup creates a pending user" in spec.pages[0].acceptance
+    assert len(spec.flows) == 1
+    assert spec.flows[0].name == "onboarding"
+    assert spec.flows[0].steps == ["Signup", "Dashboard"]
+    assert "core flow works end to end" in spec.acceptance
+    assert len(spec.crew) == 2
+    assert spec.crew[0].role == "planner"
+    assert "every page has implementation" in spec.done_when
+    assert len(spec.entities) == 1
+    assert spec.entities[0].name == "User"
+    assert len(spec.steps) == 1
+    assert spec.steps[0].name == "signup"
+    assert len(spec.tests) == 1
+    assert spec.tests[0].name == "signup works"
+
+
+def test_hybrid_auto_detect_returns_hybrid_spec():
+    result = parse_string_auto(HYBRID_EXAMPLE)
+
+    assert isinstance(result, HybridJourneySpec)
+
+
+def test_hybrid_auto_detect_returns_journey_spec_for_structured():
+    structured = '''
+    journey "Test" {
+      entity Foo {
+        bar string
+      }
+    }
+    '''
+    result = parse_string_auto(structured)
+
+    assert isinstance(result, JourneySpec)
+    assert not isinstance(result, HybridJourneySpec)
+
+
+def test_hybrid_validation_reports_unspecified_pages():
+    spec = parse_hybrid(HYBRID_EXAMPLE)
+
+    report = validate_hybrid(spec)
+
+    assert report.ok
+    unspecified = [i for i in report.warnings if i.code == "unspecified_page"]
+    assert len(unspecified) == 1
+    assert "Dashboard" in unspecified[0].message
+
+
+def test_hybrid_validation_strict_promotes_warnings():
+    spec = parse_hybrid(HYBRID_EXAMPLE)
+
+    report = validate_hybrid(spec, strict=True)
+
+    assert not report.ok
+    assert any(i.code == "unspecified_page" for i in report.errors)
+
+
+def test_hybrid_normalization_produces_checklist():
+    spec = parse_hybrid(HYBRID_EXAMPLE)
+    journey = normalize_hybrid(spec)
+
+    assert journey.slug == "workspace-invite"
+    checklist = journey.checklist()
+    assert "Read journey 'Workspace Invite'" in checklist
+    assert "Read design reference './design.md'" in checklist
+    assert "Specify page 'Signup'" in checklist
+    assert "Specify page 'Dashboard'" in checklist
+    assert "Implement flow 'onboarding'" in checklist
+    assert "Implement entity 'User'" in checklist
+    assert "Implement step 'signup'" in checklist
+    assert "Prove acceptance: core flow works end to end" in checklist
+    assert "Pass acceptance test 'signup works'" in checklist
+    assert "Run cleanup and repair drift" in checklist
+
+
+def test_hybrid_as_journey_spec_downcasts():
+    spec = parse_hybrid(HYBRID_EXAMPLE)
+    plain = spec.as_journey_spec()
+
+    assert isinstance(plain, JourneySpec)
+    assert plain.name == "Workspace Invite"
+    assert len(plain.entities) == 1
+    assert len(plain.steps) == 1
+    assert len(plain.tests) == 1
+
+
+def test_hybrid_file_auto_parse():
+    spec = parse_file_auto("examples/hybrid_workspace_invite.journey")
+
+    assert isinstance(spec, HybridJourneySpec)
+    assert spec.name == "Workspace Invite"
+    assert len(spec.entities) == 2
+    assert len(spec.flows) == 2
+
+
+def test_hybrid_validate_cli(capsys):
+    cmd_validate(Namespace(file="examples/hybrid_workspace_invite.journey", strict=False))
+
+    output = capsys.readouterr().out
+    assert "unspecified_page" in output
+
+
+def test_hybrid_status_cli(capsys):
+    cmd_status(Namespace(file="examples/hybrid_workspace_invite.journey"))
+
+    output = capsys.readouterr().out
+    assert "Journey: Workspace Invite" in output
+    assert "Mode: hybrid" in output
+    assert "Pages: 5" in output
+    assert "Flows: 2" in output
+
+
+def test_hybrid_inspect_cli(capsys):
+    cmd_inspect(Namespace(file="examples/hybrid_workspace_invite.journey", strict=False))
+
+    output = capsys.readouterr().out
+    assert "Journey: Workspace Invite" in output
+    assert "Mode: hybrid" in output
+    assert "Signup (specified)" in output
+    assert "onboarding: Signup -> Verify Email -> Workspace Home" in output
+    assert "User" in output
+    assert "signup" in output
+
+
+def test_hybrid_agent_writes_handoff(tmp_path):
+    args = Namespace(
+        file="examples/hybrid_workspace_invite.journey",
+        output=str(tmp_path),
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+        no_test=True,
+    )
+
+    cmd_agent(args)
+
+    assert (tmp_path / "JOURNEY.md").exists()
+    manifest = json.loads((tmp_path / "journey.agent.json").read_text())
+    assert manifest["schema"] == "journey.agent.v1"
+    assert manifest["mode"] == "hybrid"
+    assert manifest["name"] == "Workspace Invite"
+    assert len(manifest["pages"]) == 5
+    assert len(manifest["flows"]) == 2
+    assert len(manifest["checklist"]) > 10
+    markdown = (tmp_path / "JOURNEY.md").read_text()
+    assert "Workspace Invite" in markdown
+    assert "Signup" in markdown
+
+
+def test_hybrid_watch_advances_one_deliverable(tmp_path, monkeypatch):
+    output = tmp_path / "handoff"
+    state_dir = tmp_path / "state"
+    monkeypatch.setenv("JOURNEY_SKIP_PROJECT_QA", "1")
+    args = Namespace(
+        file="examples/hybrid_workspace_invite.journey",
+        output=str(output),
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+        state_dir=str(state_dir),
+        agent_command=None,
+        once=True,
+        max_cycles=1,
+    )
+
+    cmd_watch(args)
+
+    state = json.loads((state_dir / "workspace-invite.json").read_text())
+    assert state["completed"] == ["Read journey 'Workspace Invite'"]
+    manifest = json.loads((output / "journey.agent.json").read_text())
+    assert manifest["mode"] == "hybrid"
+
+
+def test_hybrid_execute_non_autonomous_prepares_handoff(tmp_path, monkeypatch):
+    output = tmp_path / "handoff"
+    monkeypatch.setenv("JOURNEY_SKIP_PROJECT_QA", "1")
+    args = Namespace(
+        file="examples/hybrid_workspace_invite.journey",
+        output=str(output),
+        autonomous=False,
+        state_dir=str(tmp_path / "state"),
+        once=True,
+        max_cycles=1,
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cmd_execute(args)
+
+    assert exc.value.code == 0
+    assert json.loads((output / "journey.agent.json").read_text())["mode"] == "hybrid"
+
+
+def test_hybrid_execute_autonomous_advances_one_item(tmp_path, monkeypatch):
+    output = tmp_path / "handoff"
+    state_dir = tmp_path / "state"
+    monkeypatch.setenv("JOURNEY_AGENT_COMMAND", "true")
+    monkeypatch.setenv("JOURNEY_SKIP_PROJECT_QA", "1")
+    args = Namespace(
+        file="examples/hybrid_workspace_invite.journey",
+        output=str(output),
+        autonomous=True,
+        state_dir=str(state_dir),
+        once=True,
+        max_cycles=1,
+        robustness="strict",
+        strict=False,
+        clean=True,
+        no_agent_manifest=False,
+        no_markdown_summary=False,
+        agent_command=None,
+    )
+
+    cmd_execute(args)
+
+    state = json.loads((state_dir / "workspace-invite.json").read_text())
+    assert state["completed"] == ["Read journey 'Workspace Invite'"]
+
+
+def test_hybrid_minimal_journey_parses():
+    """A hybrid file can be as minimal as just a name and mission."""
+    source = '''journey "Minimal"
+
+mission:
+  Build something simple.
+'''
+    spec = parse_hybrid(source)
+
+    assert spec.name == "Minimal"
+    assert "Build something simple" in spec.mission
+    assert spec.entities == []
+    assert spec.steps == []
+
+
+def test_hybrid_structured_only_stays_structured():
+    """Files with journey 'Name' { ... } are NOT hybrid."""
+    source = '''journey "Plain" {
+  entity Thing {
+    name string
+  }
+}'''
+    assert not is_hybrid_source(source)

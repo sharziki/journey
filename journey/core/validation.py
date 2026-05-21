@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from journey.parser.ast_nodes import JourneySpec, Step
+from journey.parser.ast_nodes import HybridJourneySpec, JourneySpec, Step
 
 
 BUILTIN_TYPES = {"string", "id", "timestamp", "number", "int", "boolean", "enum", "state"}
@@ -227,3 +227,69 @@ def _error(code: str, message: str, path: str) -> ValidationIssue:
 
 def _warning(code: str, message: str, path: str) -> ValidationIssue:
     return ValidationIssue("warning", code, message, path)
+
+
+def validate_hybrid(spec: HybridJourneySpec, *, strict: bool = False) -> ValidationReport:
+    """Validate a hybrid journey spec.
+
+    Validates both the natural-language sections and any structured blocks.
+    """
+    issues: list[ValidationIssue] = []
+
+    # Validate natural-language sections
+    if not spec.mission and not spec.description:
+        issues.append(_warning("missing_mission", "Journey has no mission or description", "journey"))
+
+    # Cross-reference page names: pages listed in page_names should have specs
+    specified_pages = {page.name for page in spec.pages}
+    for page_name in spec.page_names:
+        if page_name not in specified_pages:
+            issues.append(
+                _warning(
+                    "unspecified_page",
+                    f"Page '{page_name}' is listed in pages but has no page spec",
+                    f"pages.{page_name}",
+                )
+            )
+
+    # Validate flow references: flow steps should reference declared pages
+    all_page_names = set(spec.page_names) | specified_pages
+    if all_page_names:
+        for flow in spec.flows:
+            for step_name in flow.steps:
+                if step_name not in all_page_names:
+                    issues.append(
+                        _warning(
+                            "unknown_flow_page",
+                            f"Flow '{flow.name}' references unknown page '{step_name}'",
+                            f"flows.{flow.name}",
+                        )
+                    )
+
+    # Validate page specs
+    for page in spec.pages:
+        path = f"page.{page.name}"
+        if not page.purpose:
+            issues.append(_warning("missing_purpose", f"Page '{page.name}' has no purpose", path))
+        if not page.acceptance:
+            issues.append(
+                _warning("missing_page_acceptance", f"Page '{page.name}' has no acceptance criteria", path)
+            )
+
+    # Validate acceptance
+    if not spec.acceptance and not any(page.acceptance for page in spec.pages):
+        issues.append(_warning("missing_acceptance", "Journey has no acceptance criteria", "journey"))
+
+    # Validate any structured blocks using the existing validator
+    if spec.entities or spec.steps or spec.tests:
+        structured = spec.as_journey_spec()
+        structured_report = validate(structured, strict=False)
+        issues.extend(structured_report.issues)
+
+    if strict:
+        issues = [
+            ValidationIssue("error" if issue.severity == "warning" else issue.severity, issue.code, issue.message, issue.path)
+            for issue in issues
+        ]
+
+    return ValidationReport(tuple(issues))

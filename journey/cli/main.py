@@ -108,6 +108,10 @@ def cmd_inspect(args):
     from ..core import normalize, validate
     from ..core.graph import load_journey_graph, validate_journey_graph
 
+    if _is_hybrid_journey(args.file):
+        _inspect_hybrid(args)
+        return
+
     if not _is_structured_journey(args.file):
         graph = load_journey_graph(args.file)
         issues = validate_journey_graph(graph)
@@ -209,6 +213,20 @@ def cmd_validate(args):
     from ..core import validate
     from ..core.graph import load_journey_graph, validate_journey_graph
 
+    if _is_hybrid_journey(args.file):
+        from ..parser.hybrid import parse_hybrid
+        from ..core.validation import validate_hybrid
+
+        spec = parse_hybrid(Path(args.file).read_text(), filename=args.file)
+        report = validate_hybrid(spec, strict=args.strict)
+        if report.ok and not report.warnings:
+            print("ok")
+            return
+        for issue in report.issues:
+            print(f"{issue.severity}: {issue.code} at {issue.path} — {issue.message}")
+        report.raise_for_errors()
+        return
+
     if not _is_structured_journey(args.file):
         graph = load_journey_graph(args.file)
         issues = validate_journey_graph(graph)
@@ -238,6 +256,16 @@ def cmd_manifest(args):
     from ..core.graph import load_journey_graph, write_graph_handoff
 
     source = args.file
+
+    if _is_hybrid_journey(source):
+        output = args.output or str(Path(".journey") / "handoff")
+        out = Path(output)
+        out.mkdir(parents=True, exist_ok=True)
+        files = _write_hybrid_handoff(source, out)
+        for path in files:
+            print(path)
+        return
+
     structured = _is_structured_journey(source)
     output = args.output or (_default_output_dir(source) if structured else str(Path(".journey") / "handoff"))
     out = Path(output)
@@ -346,6 +374,26 @@ def cmd_diff(args):
 
 def cmd_status(args):
     """Print a concise Journey status summary."""
+    if _is_hybrid_journey(args.file):
+        from ..parser.hybrid import parse_hybrid
+        from ..core.validation import validate_hybrid
+        from ..core.normalize import normalize_hybrid
+
+        spec = parse_hybrid(Path(args.file).read_text(), filename=args.file)
+        report = validate_hybrid(spec, strict=False)
+        journey = normalize_hybrid(spec)
+        print(f"Journey: {spec.name}")
+        print("Mode: hybrid")
+        print(f"Pages: {len(journey.pages)}")
+        print(f"Flows: {len(journey.flows)}")
+        print(f"Entities: {len(spec.entities)}")
+        print(f"Steps: {len(spec.steps)}")
+        print(f"Tests: {len(spec.tests)}")
+        print(f"Acceptance: {len(spec.acceptance)} item(s)")
+        print(f"Validation: {'ok' if report.ok else 'issues'}")
+        print(f"Next: journey inspect {args.file}")
+        return
+
     if _is_structured_journey(args.file):
         from ..parser import parse_file
         from ..core import validate
@@ -396,6 +444,27 @@ def cmd_status(args):
 def cmd_agent(args):
     """Prepare and verify a journey for coding agents."""
     source = args.file
+
+    if _is_hybrid_journey(source):
+        output = args.output or str(Path(".journey") / "handoff")
+        out = Path(output)
+        out.mkdir(parents=True, exist_ok=True)
+        files = _write_hybrid_handoff(source, out)
+        print("\nAgent handoff:")
+        for i, path in enumerate(files, 1):
+            print(f"  {i}. Read {path}")
+        print(f"  {len(files) + 1}. Implement or repair the app against the journey spec")
+        print(f"  {len(files) + 2}. Re-run: journey agent {source}")
+        if args.no_test:
+            print("\nSkipped project QA (--no-test).")
+            return
+        returncode = _run_project_qa()
+        if returncode == 0:
+            print("\nJourney handoff accepted: hybrid journey is ready for agents.")
+        else:
+            print("\nProject QA failed. Use the failure output as the next agent work item.")
+        sys.exit(returncode)
+
     structured = _is_structured_journey(source)
     output = args.output or (_default_output_dir(source) if structured else str(Path(".journey") / "handoff"))
     if not structured:
@@ -448,6 +517,27 @@ def cmd_watch(args):
     from ..core import normalize
     from ..core.graph import load_journey_graph
 
+    if _is_hybrid_journey(args.file):
+        from ..parser.hybrid import parse_hybrid
+        from ..core.normalize import normalize_hybrid
+
+        spec = parse_hybrid(Path(args.file).read_text(), filename=args.file)
+        journey = normalize_hybrid(spec)
+        output = args.output or str(Path(".journey") / "handoff" / journey.slug)
+        _run_watch_loop(
+            args=args,
+            source=args.file,
+            output=output,
+            journey_name=journey.name,
+            journey_slug=journey.slug,
+            checklist=list(journey.checklist()),
+            prepare=lambda: _write_hybrid_handoff(args.file, Path(output)),
+            qa_label="project checks",
+            qa_runner=_run_project_qa,
+            success_label="Deliverable accepted",
+        )
+        return
+
     if not _is_structured_journey(args.file):
         graph = load_journey_graph(args.file)
         checklist = graph.checklist()
@@ -494,6 +584,9 @@ def cmd_watch(args):
 
 def cmd_execute(args):
     """Execute a journey, optionally with an autonomous coding agent loop."""
+    if _is_hybrid_journey(args.file):
+        _execute_hybrid(args)
+        return
     if not _is_structured_journey(args.file):
         if Path(args.file).is_dir() or _looks_linked_journey(Path(args.file)):
             if not args.autonomous:
@@ -821,6 +914,17 @@ def _autonomous_agent_command() -> str | None:
     return None
 
 
+def _is_hybrid_journey(path: str) -> bool:
+    """Return True if the file is a hybrid (natural-language + structured) journey."""
+    if Path(path).is_dir():
+        return False
+    try:
+        from ..parser.hybrid import is_hybrid_source
+        return is_hybrid_source(Path(path).read_text())
+    except Exception:
+        return False
+
+
 def _is_structured_journey(path: str) -> bool:
     if Path(path).is_dir():
         return False
@@ -831,6 +935,11 @@ def _is_structured_journey(path: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def _is_parseable_journey(path: str) -> bool:
+    """Return True if the file can be parsed as either structured or hybrid."""
+    return _is_structured_journey(path) or _is_hybrid_journey(path)
 
 
 def _looks_linked_journey(path: Path) -> bool:
@@ -883,6 +992,209 @@ def _status_next(source: str | None, drift: list) -> str:
     if drift:
         return f"journey diff {target}"
     return f"journey watch {target} --once"
+
+
+def _execute_hybrid(args):
+    """Execute a hybrid journey through the agent/QA loop."""
+    from ..parser.hybrid import parse_hybrid
+    from ..core.normalize import normalize_hybrid
+
+    source = Path(args.file)
+    spec = parse_hybrid(source.read_text(), filename=str(source))
+    journey = normalize_hybrid(spec)
+    output = args.output or str(Path(".journey") / "handoff" / journey.slug)
+    checklist = list(journey.checklist())
+
+    if not args.autonomous:
+        agent_args = argparse.Namespace(**vars(args))
+        agent_args.no_test = False
+        cmd_agent(agent_args)
+        return
+
+    command = _autonomous_agent_command()
+    if command is None:
+        print("No supported autonomous coding agent runtime found.")
+        print("Install Codex CLI or set JOURNEY_AGENT_COMMAND, then rerun:")
+        print(f"  journey execute {args.file} --autonomous")
+        sys.exit(2)
+
+    _run_watch_loop(
+        args=args,
+        source=str(source),
+        output=output,
+        journey_name=journey.name,
+        journey_slug=journey.slug,
+        checklist=checklist,
+        prepare=lambda: _write_hybrid_handoff(str(source), Path(output)),
+        qa_label="project checks",
+        qa_runner=_run_project_qa,
+        success_label="Deliverable accepted",
+    )
+
+
+def _write_hybrid_handoff(source: str, output_dir: Path) -> list[str]:
+    """Write agent handoff files for a hybrid journey."""
+    from ..parser.hybrid import parse_hybrid
+    from ..adapters.markdown import write_markdown
+    from ..core.normalize import normalize_hybrid
+
+    spec = parse_hybrid(Path(source).read_text(), filename=source)
+    journey = normalize_hybrid(spec)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    markdown_path = write_markdown(spec, output_dir)
+    manifest_path = output_dir / "journey.agent.json"
+    payload = {
+        "schema": "journey.agent.v1",
+        "mode": "hybrid",
+        "name": journey.name,
+        "slug": journey.slug,
+        "mission": journey.mission,
+        "design": journey.design,
+        "checklist": list(journey.checklist()),
+        "pages": [
+            {
+                "name": page.name,
+                "slug": page.slug,
+                "purpose": page.purpose,
+                "acceptance": list(page.acceptance),
+            }
+            for page in journey.pages
+        ],
+        "flows": [
+            {
+                "name": flow.name,
+                "slug": flow.slug,
+                "steps": list(flow.steps),
+            }
+            for flow in journey.flows
+        ],
+        "acceptance": list(journey.acceptance),
+        "done_when": list(journey.done_when),
+        "entities": [
+            {
+                "name": entity.name,
+                "slug": entity.slug,
+                "fields": [
+                    {"name": f.name, "type_name": f.type_name, "modifiers": list(f.modifiers)}
+                    for f in entity.fields
+                ],
+            }
+            for entity in journey.entities
+        ],
+        "steps": [
+            {
+                "name": step.name,
+                "slug": step.slug,
+                "requires": step.requires,
+                "actor": step.actor,
+                "authenticated": step.authenticated,
+            }
+            for step in journey.steps
+        ],
+        "tests": [
+            {"name": test.name, "slug": test.slug, "steps": list(test.steps)}
+            for test in journey.tests
+        ],
+    }
+    manifest_path.write_text(json.dumps(payload, indent=2) + "\n")
+    return [markdown_path, str(manifest_path)]
+
+
+def _inspect_hybrid(args):
+    """Inspect a hybrid journey file."""
+    from ..parser.hybrid import parse_hybrid
+    from ..core.normalize import normalize_hybrid
+    from ..core.validation import validate_hybrid
+
+    spec = parse_hybrid(Path(args.file).read_text(), filename=args.file)
+    report = validate_hybrid(spec, strict=getattr(args, "strict", False))
+    journey = normalize_hybrid(spec)
+
+    print(f"Journey: {spec.name}")
+    print("Mode: hybrid")
+    if spec.mission:
+        print(f"  Mission: {spec.mission}")
+    if spec.design:
+        print(f"  Design: {spec.design}")
+    print()
+
+    if spec.page_names or spec.pages:
+        print("Pages:")
+        all_names = list(spec.page_names)
+        page_specs = {p.name for p in spec.pages}
+        for p in spec.pages:
+            if p.name not in set(spec.page_names):
+                all_names.append(p.name)
+        for name in all_names:
+            has_spec = " (specified)" if name in page_specs else ""
+            print(f"  {name}{has_spec}")
+        print()
+
+    if spec.flows:
+        print("Flows:")
+        for flow in spec.flows:
+            if flow.steps:
+                print(f"  {flow.name}: " + " -> ".join(flow.steps))
+            else:
+                print(f"  {flow.name}")
+        print()
+
+    if spec.entities:
+        print("Entities:")
+        for entity in spec.entities:
+            print(f"  {entity.name}")
+            for field in entity.fields:
+                mods = []
+                if field.modifiers.unique:
+                    mods.append("unique")
+                if field.modifiers.hashed:
+                    mods.append("hashed")
+                if field.modifiers.auto:
+                    mods.append("auto")
+                mod_str = f" [{', '.join(mods)}]" if mods else ""
+                if field.state_type:
+                    states = " -> ".join(field.state_type.states)
+                    print(f"    {field.name}: state({states}){mod_str}")
+                elif field.enum_type:
+                    vals = ", ".join(field.enum_type.values)
+                    print(f"    {field.name}: enum({vals}){mod_str}")
+                else:
+                    print(f"    {field.name}: {field.type_name}{mod_str}")
+        print()
+
+    if spec.steps:
+        print("Steps:")
+        for step in spec.steps:
+            req = f" (requires {step.requires})" if step.requires else ""
+            auth = " [authenticated]" if step.actor.authenticated else ""
+            print(f"  {step.name}{req}{auth}")
+        print()
+
+    if spec.tests:
+        print("Tests:")
+        for test in spec.tests:
+            print(f"  \"{test.name}\" ({len(test.commands)} steps)")
+        print()
+
+    if spec.acceptance:
+        print("Acceptance:")
+        for item in spec.acceptance:
+            print(f"  - {item}")
+        print()
+
+    print("Agent checklist:")
+    for item in journey.checklist():
+        print(f"  [ ] {item}")
+
+    print()
+    print("Validation:")
+    if report.ok and not report.warnings:
+        print("  ok")
+    else:
+        for issue in report.issues:
+            print(f"  {issue.severity}: {issue.code} at {issue.path} — {issue.message}")
+        report.raise_for_errors()
 
 
 def _print_watch_dashboard(journey_name: str, checklist: list[str], completed: set[str], current_index: int | None):
