@@ -17,6 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .. import __version__
 from ..core.config import RobustnessConfig
 
 
@@ -934,6 +935,7 @@ def main():
         prog="journey",
         description="Journey — a language for backend workflows"
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command")
 
     # compile

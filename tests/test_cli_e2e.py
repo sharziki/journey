@@ -8,6 +8,8 @@ import time
 import urllib.request
 from pathlib import Path
 
+import journey
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,6 +74,8 @@ def test_cli_generates_tests_and_serves_a_backend(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT)
 
+    version = _run_cli(["--version"], tmp_path, env)
+    assert version.stdout.strip() == f"journey {journey.__version__}"
     _run_cli(["validate", str(source), "--strict"], tmp_path, env)
     _run_cli(["test", str(source), "--clean", "--robustness", "strict"], tmp_path, env)
     _run_cli(["compile", str(source), "--clean", "--robustness", "strict"], tmp_path, env)
@@ -97,6 +101,7 @@ def test_cli_generates_tests_and_serves_a_backend(tmp_path):
     try:
         openapi = _wait_for_openapi(port, server)
         assert openapi["info"]["title"] == "Smoke E2E"
+        assert openapi["info"]["version"] == journey.__version__
         assert "/journey/smoke-e2-e/leads" in openapi["paths"]
         assert "/journey/smoke-e2-e/contact-lead" in openapi["paths"]
     finally:

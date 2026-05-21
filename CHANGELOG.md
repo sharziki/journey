@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.4
+
+- Fixed package version reporting so `journey.__version__` is derived from installed package metadata instead of a stale hardcoded value.
+- Added `journey --version`.
+- Made generated FastAPI OpenAPI metadata use the Journey package version.
+- Added e2e assertions that installed wheels report the expected package version.
+
 ## 0.2.3
 
 - Added end-to-end CLI coverage for the lightweight `journey create .` workflow, including `doctor --strict`, `agent --no-test`, handoff generation, `JOURNEY_FLOW.md`, and `status`.
