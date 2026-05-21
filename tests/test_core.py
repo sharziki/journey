@@ -320,8 +320,12 @@ def test_agent_command_uses_lightweight_graph_for_folder_journeys(tmp_path):
     markdown = (output / "JOURNEY.md").read_text()
     assert manifest["mode"] == "lightweight"
     assert len(manifest["journeys"]) == 2
+    page_entry = next(item for item in manifest["journeys"] if item["level"] == "page")
+    assert page_entry["route"] == "/dashboard"
+    assert page_entry["source"] == "../../app/dashboard/page.tsx"
     assert "app runtime, database, or code generator" in markdown
     assert "pages/dashboard.journey" in markdown
+    assert "`/dashboard`" in markdown
 
 
 def test_manifest_command_uses_lightweight_graph_for_folder_journeys(tmp_path):

@@ -15,6 +15,8 @@ class JourneyNode:
     path: Path
     name: str
     level: str | None
+    route: str | None
+    source: str | None
     parent: str | None
     children: tuple[str, ...]
     body: str
@@ -79,7 +81,8 @@ def render_graph_markdown(graph: JourneyGraph) -> str:
     for node in graph.nodes:
         rel = node.path.relative_to(graph.root.path.parent)
         level = f" ({node.level})" if node.level else ""
-        lines.append(f"- `{rel}` - {node.name}{level}")
+        route = f" - `{node.route}`" if node.route else ""
+        lines.append(f"- `{rel}` - {node.name}{level}{route}")
     lines.extend(["", "## Linked Content", ""])
     for node in graph.nodes:
         rel = node.path.relative_to(graph.root.path.parent)
@@ -98,6 +101,8 @@ def graph_manifest(graph: JourneyGraph) -> dict:
             {
                 "name": node.name,
                 "level": node.level,
+                "route": node.route,
+                "source": node.source,
                 "path": str(node.path),
                 "parent": node.parent,
                 "children": list(node.children),
@@ -175,9 +180,11 @@ def _parse_node(path: Path) -> JourneyNode:
     name_match = re.search(r'^\s*journey\s+"([^"]+)"', body, re.MULTILINE)
     name = name_match.group(1).strip() if name_match else path.stem.replace("_", " ").replace("-", " ").title()
     level = _scalar(body, "level")
+    route = _scalar(body, "route")
+    source = _scalar(body, "source")
     parent = _scalar(body, "parent")
     children = tuple(_list_values(body, "children"))
-    return JourneyNode(path=path, name=name, level=level, parent=parent, children=children, body=body)
+    return JourneyNode(path=path, name=name, level=level, route=route, source=source, parent=parent, children=children, body=body)
 
 
 def _scalar(body: str, key: str) -> str | None:

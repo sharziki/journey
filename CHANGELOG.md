@@ -5,6 +5,7 @@
 - Added `JOURNEY_FLOW.md` generation for lightweight folder journeys so `journey create .` and `journey sync .` produce a single route, feature, source, and acceptance walkthrough.
 - Added route fields to generated page/API child journeys so each tier is readable without jumping back to the flow summary.
 - Added lightweight source signal extraction for generated journey docs: page actions, links, API calls, state words, API methods, request hints, and response statuses.
+- Added route and source metadata to lightweight agent manifests so agents can reason about linked journeys without scraping document bodies.
 
 ## 0.2.0
 
