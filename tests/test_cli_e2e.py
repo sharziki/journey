@@ -176,6 +176,58 @@ def test_cli_creates_lightweight_graph_and_agent_handoff(tmp_path):
     assert "Errors: 0" in status.stdout
 
 
+def test_release_version_preflight_accepts_matching_tag(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        textwrap.dedent(
+            """
+            [project]
+            name = "journey-lang"
+            version = "1.2.3"
+            """
+        ).strip()
+        + "\n"
+    )
+
+    script = ROOT / "scripts" / "check_release_version.sh"
+    result = subprocess.run(
+        [str(script), "v1.2.3"],
+        cwd=project,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert result.stdout.strip() == "release version ok: v1.2.3"
+
+
+def test_release_version_preflight_rejects_mismatched_tag(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        textwrap.dedent(
+            """
+            [project]
+            name = "journey-lang"
+            version = "1.2.3"
+            """
+        ).strip()
+        + "\n"
+    )
+
+    script = ROOT / "scripts" / "check_release_version.sh"
+    result = subprocess.run(
+        [str(script), "v1.2.4"],
+        cwd=project,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 1
+    assert "Release tag/version mismatch" in result.stderr
+
+
 def _run_cli(args, cwd, env):
     result = subprocess.run(
         [sys.executable, "-m", "journey", *args],

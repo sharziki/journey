@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.12
+
+- Added a release version preflight that fails tag builds when the Git tag and `pyproject.toml` version disagree.
+- Added tests for matching and mismatched release tag/version checks.
+
 ## 0.2.11
 
 - Added a public GitHub release artifact e2e smoke that downloads published assets, verifies checksums, installs through the hash-pinned requirements file, runs `pip check`, and executes generated acceptance from the public install.
