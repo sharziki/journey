@@ -51,7 +51,7 @@ def scaffold_journeys(root: str | Path, *, name: str | None = None, force: bool 
     project.mkdir(parents=True, exist_ok=True)
     title = name or _project_name(project)
     out = project / ".journey"
-    candidates = _detect_candidates(project)
+    candidates = detect_candidates(project)
     if not candidates:
         candidates = [JourneyCandidate("Main Page", "page", None)]
 
@@ -87,7 +87,7 @@ def sync_journeys(root: str | Path, *, name: str | None = None, force: bool = Fa
     project.mkdir(parents=True, exist_ok=True)
     title = name or _project_name(project)
     out = project / ".journey"
-    candidates = _detect_candidates(project)
+    candidates = detect_candidates(project)
     if not candidates:
         candidates = [JourneyCandidate("Main Page", "page", None)]
 
@@ -112,7 +112,8 @@ def sync_journeys(root: str | Path, *, name: str | None = None, force: bool = Fa
     return ScaffoldResult(root=str(out), files=tuple(written))
 
 
-def _detect_candidates(project: Path) -> list[JourneyCandidate]:
+def detect_candidates(project: str | Path) -> list[JourneyCandidate]:
+    project = Path(project).resolve()
     candidates: dict[tuple[str, str], JourneyCandidate] = {}
     for path in project.rglob("*"):
         if _is_skipped(path, project) or not path.is_file():

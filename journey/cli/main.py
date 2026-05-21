@@ -294,6 +294,24 @@ def cmd_sync(args):
     print("Existing child journeys were preserved unless --force was used.")
 
 
+def cmd_doctor(args):
+    """Check whether a lightweight Journey graph is healthy."""
+    from ..core.doctor import doctor_journey
+
+    issues = doctor_journey(args.file or ".")
+    if not issues:
+        print("Journey doctor: ok")
+        return
+
+    print("Journey doctor found issues:")
+    for issue in issues:
+        print(f"{issue.severity}: {issue.code} at {issue.path} — {issue.message}")
+    if any(issue.severity == "error" for issue in issues):
+        sys.exit(1)
+    if getattr(args, "strict", False):
+        sys.exit(1)
+
+
 def cmd_agent(args):
     """Prepare and verify a journey for coding agents."""
     source = args.file
@@ -782,6 +800,11 @@ def main():
     p_sync.add_argument("--name", help="Name to use for the repo journey")
     p_sync.add_argument("--force", action="store_true", help="Overwrite existing Journey files")
 
+    # doctor
+    p_doctor = sub.add_parser("doctor", help="Check lightweight Journey graph health")
+    p_doctor.add_argument("file", nargs="?", help="Path to a project directory or Journey graph")
+    p_doctor.add_argument("--strict", action="store_true", help="Exit non-zero on warnings")
+
     # agent
     p_agent = sub.add_parser("agent", help="Prepare a journey for an AI coding agent")
     p_agent.add_argument("file", help="Path to .journey file")
@@ -832,6 +855,8 @@ def main():
         cmd_create(args)
     elif args.command == "sync":
         cmd_sync(args)
+    elif args.command == "doctor":
+        cmd_doctor(args)
     elif args.command == "agent":
         cmd_agent(args)
     elif args.command == "watch":

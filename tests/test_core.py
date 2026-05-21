@@ -8,6 +8,7 @@ from journey.cli.main import (
     _autonomous_agent_command,
     cmd_agent,
     cmd_create,
+    cmd_doctor,
     cmd_execute,
     cmd_inspect,
     cmd_manifest,
@@ -332,6 +333,58 @@ def test_sync_adds_new_journeys_without_overwriting_existing_specs(tmp_path):
     assert (tmp_path / ".journey" / "apis" / "leads.journey").exists()
     assert "./pages/settings.journey" in repo
     assert "./apis/leads.journey" in repo
+
+
+def test_doctor_accepts_healthy_lightweight_graph(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    api_route = tmp_path / "app" / "api" / "leads" / "route.ts"
+    app_page.parent.mkdir(parents=True)
+    api_route.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    api_route.write_text("export async function POST() { return Response.json({ ok: true }) }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    capsys.readouterr()
+
+    cmd_doctor(Namespace(file=str(tmp_path), strict=False))
+
+    assert capsys.readouterr().out.strip() == "Journey doctor: ok"
+
+
+def test_doctor_reports_missing_orphan_stale_and_acceptance_issues(tmp_path, capsys):
+    app_page = tmp_path / "app" / "dashboard" / "page.tsx"
+    app_page.parent.mkdir(parents=True)
+    app_page.write_text("export default function Dashboard() { return null }\n")
+    cmd_create(Namespace(file=str(tmp_path), output=None, filename="JOURNEY_FLOW.md", name="Example App", force=False))
+    (tmp_path / ".journey" / "pages" / "orphan.journey").write_text(
+        'journey "Orphan"\n\nlevel: page\nsource: ../../app/orphan/page.tsx\n'
+    )
+    page = tmp_path / ".journey" / "pages" / "dashboard.journey"
+    page.write_text('journey "Dashboard"\n\nparent: ../repo.journey\nlevel: page\nsource: ../../app/missing/page.tsx\n')
+    settings_page = tmp_path / "app" / "settings" / "page.tsx"
+    settings_page.parent.mkdir(parents=True)
+    settings_page.write_text("export default function Settings() { return null }\n")
+    capsys.readouterr()
+
+    cmd_doctor(Namespace(file=str(tmp_path), strict=False))
+
+    output = capsys.readouterr().out
+    assert "missing_journey" in output
+    assert "orphan_journey" in output
+    assert "stale_source" in output
+    assert "missing_acceptance" in output
+
+
+def test_doctor_strict_exits_on_warnings(tmp_path):
+    journey_dir = tmp_path / ".journey"
+    journey_dir.mkdir()
+    (journey_dir / "repo.journey").write_text(
+        'journey "Broken App"\n\nlevel: repo\n\nchildren:\n  - ./pages/missing.journey\n'
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cmd_doctor(Namespace(file=str(tmp_path), strict=True))
+
+    assert exc.value.code == 1
 
 
 def test_validate_accepts_lightweight_graph(tmp_path, capsys):
