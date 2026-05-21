@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.6
+
+- Guarded `journey.__main__` so importing it no longer executes the CLI.
+- Added installed-wheel e2e checks for `python -m journey --version`.
+
 ## 0.2.5
 
 - Kept generated FastAPI apps standalone by baking the Journey compiler version into generated `app.py` instead of importing `journey` at app runtime.
