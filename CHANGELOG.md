@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.8
+
+- Added release artifact SHA256 checksum generation and verification in CI and the release workflow.
+- Published `SHA256SUMS` alongside wheel and source distribution assets in GitHub Releases.
+
 ## 0.2.7
 
 - Expanded release artifact e2e coverage so CI and release workflows install-test every built distribution artifact, including the wheel and source distribution.

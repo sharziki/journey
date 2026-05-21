@@ -39,6 +39,11 @@ jobs:
         run: |
           python -m build
           python -m twine check dist/*
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum journey_lang-* > SHA256SUMS
+          sha256sum -c SHA256SUMS
       - name: Distribution artifact e2e
         run: |
           set -e
