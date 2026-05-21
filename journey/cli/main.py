@@ -274,7 +274,7 @@ def cmd_create(args):
         return
 
     target = source if source.is_dir() or source.suffix == "" else source.parent
-    result = scaffold_journeys(target, name=args.name, force=args.force)
+    result = scaffold_journeys(target, name=args.name, force=args.force, flow_filename=args.filename)
     print(f"Created folder-level journeys in {result.root}/")
     for path in result.files:
         print(f"  {path}")

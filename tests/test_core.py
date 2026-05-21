@@ -224,9 +224,11 @@ def test_create_command_scaffolds_folder_level_journeys(tmp_path):
     repo = tmp_path / ".journey" / "repo.journey"
     page = tmp_path / ".journey" / "pages" / "dashboard.journey"
     api = tmp_path / ".journey" / "apis" / "leads.journey"
+    flow = tmp_path / ".journey" / "JOURNEY_FLOW.md"
     assert repo.exists()
     assert page.exists()
     assert api.exists()
+    assert flow.exists()
     assert "children:" in repo.read_text()
     assert "  - ./apis/leads.journey" in repo.read_text()
     assert "  - ./pages/dashboard.journey" in repo.read_text()
@@ -234,6 +236,11 @@ def test_create_command_scaffolds_folder_level_journeys(tmp_path):
     assert "source: ../../app/dashboard/page.tsx" in page.read_text()
     assert "level: api" in api.read_text()
     assert "source: ../../app/api/leads/route.ts" in api.read_text()
+    flow_text = flow.read_text()
+    assert "# Example App Journey Flow" in flow_text
+    assert "| page | `/dashboard` | `./pages/dashboard.journey` | `app/dashboard/page.tsx` |" in flow_text
+    assert "| api | `/api/leads` | `./apis/leads.journey` | `app/api/leads/route.ts` |" in flow_text
+    assert "## End-to-End Walkthrough" in flow_text
 
 
 def test_create_command_treats_dotted_existing_path_as_directory(tmp_path):

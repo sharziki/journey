@@ -53,8 +53,11 @@ That writes a linked `.journey` graph:
 ├── repo.journey
 ├── pages/*.journey
 ├── apis/*.journey
+├── JOURNEY_FLOW.md
 └── README.md
 ```
+
+`JOURNEY_FLOW.md` is the single read-through document: route map, linked journeys, source files, feature flow, and acceptance outline.
 
 Then use the graph:
 
@@ -294,8 +297,8 @@ journey execute examples/auth_workspaces.journey --autonomous
 | Command | What it does |
 |---------|--------------|
 | `journey agent <path>` | Write agent handoff files from a lightweight journey graph, or run adapter generation for a structured backend journey |
-| `journey create [path]` | Create linked repo/page journeys, or write a route and feature flow document for an existing `.journey` |
-| `journey sync [path]` | Rescan a project and add missing page/API journeys without overwriting edited specs |
+| `journey create [path]` | Create linked repo/page/API journeys plus a read-through `JOURNEY_FLOW.md`, or write a route and feature flow document for an existing `.journey` |
+| `journey sync [path]` | Rescan a project and add missing page/API journeys without overwriting edited specs, then refresh the flow document |
 | `journey doctor [path]` | Check graph health: missing links, orphan journeys, stale sources, missing specs, and acceptance gaps |
 | `journey diff [path]` | Show drift between code files and linked Journey files, with `--check` for CI |
 | `journey status [path]` | Show a one-screen Journey summary and next command |

@@ -46,7 +46,13 @@ class JourneyCandidate:
         return f"./{self.level}s/{self.slug}.journey"
 
 
-def scaffold_journeys(root: str | Path, *, name: str | None = None, force: bool = False) -> ScaffoldResult:
+def scaffold_journeys(
+    root: str | Path,
+    *,
+    name: str | None = None,
+    force: bool = False,
+    flow_filename: str = "JOURNEY_FLOW.md",
+) -> ScaffoldResult:
     project = Path(root).resolve()
     project.mkdir(parents=True, exist_ok=True)
     title = name or _project_name(project)
@@ -73,10 +79,20 @@ def scaffold_journeys(root: str | Path, *, name: str | None = None, force: bool 
     _write_once(index_path, _render_index(title, root_path, candidates), force=force)
     written.append(str(index_path))
 
+    flow_path = out / flow_filename
+    _write_once(flow_path, _render_flow_document(title, candidates), force=force)
+    written.append(str(flow_path))
+
     return ScaffoldResult(root=str(out), files=tuple(written))
 
 
-def sync_journeys(root: str | Path, *, name: str | None = None, force: bool = False) -> ScaffoldResult:
+def sync_journeys(
+    root: str | Path,
+    *,
+    name: str | None = None,
+    force: bool = False,
+    flow_filename: str = "JOURNEY_FLOW.md",
+) -> ScaffoldResult:
     """Update the Journey tree with newly discovered pages and API routes.
 
     Existing child journey files are preserved unless force=True. repo.journey and
@@ -108,6 +124,10 @@ def sync_journeys(root: str | Path, *, name: str | None = None, force: bool = Fa
     index_path = out / "README.md"
     index_path.write_text(_render_index(title, root_path, candidates))
     written.append(str(index_path))
+
+    flow_path = out / flow_filename
+    flow_path.write_text(_render_flow_document(title, candidates))
+    written.append(str(flow_path))
 
     return ScaffoldResult(root=str(out), files=tuple(written))
 
@@ -293,6 +313,113 @@ def _render_index(title: str, root_path: Path, candidates: list[JourneyCandidate
     )
     lines.append("")
     return "\n".join(lines)
+
+
+def _render_flow_document(title: str, candidates: list[JourneyCandidate]) -> str:
+    pages = [candidate for candidate in candidates if candidate.level == "page"]
+    apis = [candidate for candidate in candidates if candidate.level == "api"]
+    lines = [
+        f"# {title} Journey Flow",
+        "",
+        "A single read-through map of the project journey. Use this before clicking through the app or opening implementation files.",
+        "",
+        "## Journey Graph",
+        "",
+        "- `.journey/repo.journey` is the repository-level source of truth.",
+        "- Child journeys live under `.journey/pages/` and `.journey/apis/`.",
+        "- Run `journey sync .` after adding or moving routes.",
+        "",
+        "## Route Map",
+        "",
+        "| Type | Route | Journey | Source |",
+        "| --- | --- | --- | --- |",
+    ]
+    for candidate in candidates:
+        route = _route_from_candidate(candidate)
+        source = candidate.source.as_posix() if candidate.source else "unknown"
+        lines.append(f"| {candidate.level} | `{route}` | `{candidate.child_path}` | `{source}` |")
+
+    lines.extend([
+        "",
+        "## Feature Flow",
+        "",
+    ])
+    if pages:
+        lines.append("### Pages")
+        lines.append("")
+        for index, page in enumerate(pages, start=1):
+            route = _route_from_candidate(page)
+            lines.extend([
+                f"{index}. **{page.name}** (`{route}`)",
+                f"   - Journey: `{page.child_path}`",
+                "   - Captures visible states, primary actions, rules, and page-level acceptance.",
+            ])
+        lines.append("")
+    if apis:
+        lines.append("### APIs")
+        lines.append("")
+        for index, api in enumerate(apis, start=1):
+            route = _route_from_candidate(api)
+            lines.extend([
+                f"{index}. **{api.name} API** (`{route}`)",
+                f"   - Journey: `{api.child_path}`",
+                "   - Captures caller intent, request shape, response shape, side effects, and API-level acceptance.",
+            ])
+        lines.append("")
+
+    lines.extend([
+        "## End-to-End Walkthrough",
+        "",
+        "1. Start with `.journey/repo.journey` to understand the product mission and linked child journeys.",
+        "2. Read page journeys in route order to understand what users see and do.",
+        "3. Read API journeys beside the pages that call them to understand data flow and side effects.",
+        "4. Update acceptance notes before changing code so agents can implement against product intent.",
+        "",
+        "## Acceptance Outline",
+        "",
+        "- every discovered page or API route has a linked child journey",
+        "- every child journey names its source file",
+        "- visible states, business rules, failures, and tests/QA notes are documented where relevant",
+        "- unresolved product questions are written in the journey instead of hidden in implementation",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def _route_from_candidate(candidate: JourneyCandidate) -> str:
+    if not candidate.source:
+        return "/"
+    source = candidate.source
+    parts = list(source.parts)
+    if candidate.source.name in PAGE_MARKERS | API_MARKERS:
+        parts = parts[:-1]
+    elif source.suffix.lower() in PAGE_SUFFIXES:
+        parts = list(source.with_suffix("").parts)
+    if parts and parts[0] == "src":
+        parts = parts[1:]
+    if parts and parts[0] in {"app", "pages", "routes"}:
+        parts = parts[1:]
+    if candidate.level == "api" and parts and parts[0] != "api":
+        parts.insert(0, "api")
+    if candidate.level == "page" and parts and parts[-1] == "index":
+        parts = parts[:-1]
+    route_parts = [
+        _route_segment(part)
+        for part in parts
+        if part not in {"page", "route"} and not (part.startswith("(") and part.endswith(")"))
+    ]
+    route = "/" + "/".join(part for part in route_parts if part)
+    return route.rstrip("/") or "/"
+
+
+def _route_segment(part: str) -> str:
+    if part.startswith("[[...") and part.endswith("]]"):
+        return f"*{part[5:-2]}"
+    if part.startswith("[...") and part.endswith("]"):
+        return f"*{part[4:-1]}"
+    if part.startswith("[") and part.endswith("]"):
+        return f":{part[1:-1]}"
+    return part
 
 
 def _project_name(project: Path) -> str:

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `JOURNEY_FLOW.md` generation for lightweight folder journeys so `journey create .` and `journey sync .` produce a single route, feature, source, and acceptance walkthrough.
+
 ## 0.2.0
 
 - Repositioned Journey around a lightweight core workflow for linked repo, page, and API journeys.
