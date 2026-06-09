@@ -144,6 +144,51 @@ def test_fastapi_adapter_uses_shared_slug_and_enum_literals(tmp_path):
     assert "stage=DealStage.discovery" in routes
 
 
+def test_fastapi_adapter_names_reference_relationships_from_journey_fields(tmp_path):
+    spec = parse_string(
+        '''
+        journey "Workspace Invites" {
+          entity User {
+            email string unique
+          }
+
+          entity Workspace {
+            owner User
+          }
+
+          entity Invitation {
+            workspace Workspace
+          }
+
+          step create_workspace {
+            actor anonymous
+            action {
+              user = create User(email: "owner")
+              workspace = create Workspace(owner: user)
+              invitation = create Invitation(workspace: workspace)
+            }
+            output {
+              invitation_id invitation.id
+            }
+          }
+
+          test "creates invitation" {
+            do create_workspace()
+              expect status 201
+          }
+        }
+        '''
+    )
+
+    generate(spec, tmp_path)
+
+    models = (tmp_path / "models.py").read_text()
+    assert 'owner = relationship("User")' in models
+    assert 'workspace = relationship("Workspace")' in models
+    assert "owner_rel" not in models
+    assert "workspace_rel" not in models
+
+
 def test_fastapi_adapter_is_domain_agnostic_for_library_members(tmp_path):
     spec = parse_string(
         '''

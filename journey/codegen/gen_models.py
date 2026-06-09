@@ -145,7 +145,7 @@ def _gen_model_class(entity: Entity, enum_classes: dict, spec: JourneySpec) -> s
             )
             # Also add relationship
             lines.append(
-                f'    {field.name}_rel = relationship("{field.ref_entity}")'
+                f'    {field.name} = relationship("{field.ref_entity}")'
             )
             continue
 
