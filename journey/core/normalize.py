@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from journey.parser.ast_nodes import JourneySpec
+from journey.parser.ast_nodes import HybridJourneySpec, JourneySpec
 
 
 @dataclass(frozen=True)
@@ -157,3 +157,105 @@ def _field_modifiers(field) -> tuple[str, ...]:
     if getattr(source, "max_val", None) is not None:
         modifiers.append(f"max({source.max_val})")
     return tuple(modifiers)
+
+
+# ---------------------------------------------------------------------------
+# Hybrid normalization
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class NormalizedPage:
+    name: str
+    slug: str
+    purpose: str | None
+    acceptance: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class NormalizedFlow:
+    name: str
+    slug: str
+    steps: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class NormalizedHybridJourney:
+    """Normalized view of a hybrid journey spec."""
+    name: str
+    slug: str
+    description: str | None
+    mission: str | None
+    design: str | None
+    pages: tuple[NormalizedPage, ...]
+    flows: tuple[NormalizedFlow, ...]
+    acceptance: tuple[str, ...]
+    done_when: tuple[str, ...]
+    # Structured blocks (same as NormalizedJourney)
+    entities: tuple[NormalizedEntity, ...]
+    steps: tuple[NormalizedStep, ...]
+    tests: tuple[NormalizedTest, ...]
+
+    def checklist(self) -> tuple[str, ...]:
+        """Return an agent-readable completion checklist."""
+        items = [f"Read journey '{self.name}'"]
+        if self.design:
+            items.append(f"Read design reference '{self.design}'")
+        items.extend(f"Specify page '{page.name}'" for page in self.pages)
+        items.extend(f"Implement flow '{flow.name}'" for flow in self.flows)
+        items.extend(f"Implement entity '{entity.name}'" for entity in self.entities)
+        items.extend(f"Implement step '{step.name}'" for step in self.steps)
+        items.extend(f"Prove acceptance: {item}" for item in self.acceptance)
+        items.extend(f"Pass acceptance test '{test.name}'" for test in self.tests)
+        items.append("Run cleanup and repair drift")
+        return tuple(items)
+
+
+def normalize_hybrid(spec: HybridJourneySpec) -> NormalizedHybridJourney:
+    """Create a deterministic normalized view of a hybrid Journey spec."""
+
+    # Collect all page names — from page_names list and from page specs
+    page_names_from_list = set(spec.page_names)
+    page_specs_by_name = {page.name: page for page in spec.pages}
+    all_page_names = list(spec.page_names)
+    for page in spec.pages:
+        if page.name not in page_names_from_list:
+            all_page_names.append(page.name)
+
+    pages = tuple(
+        NormalizedPage(
+            name=name,
+            slug=slugify(name),
+            purpose=page_specs_by_name[name].purpose if name in page_specs_by_name else None,
+            acceptance=tuple(page_specs_by_name[name].acceptance) if name in page_specs_by_name else (),
+        )
+        for name in all_page_names
+    )
+
+    flows = tuple(
+        NormalizedFlow(
+            name=flow.name,
+            slug=slugify(flow.name),
+            steps=tuple(flow.steps),
+        )
+        for flow in spec.flows
+    )
+
+    # Normalize structured blocks using the same logic as normalize()
+    structured = spec.as_journey_spec()
+    structured_normalized = normalize(structured)
+
+    return NormalizedHybridJourney(
+        name=spec.name,
+        slug=slugify(spec.name),
+        description=spec.description,
+        mission=spec.mission,
+        design=spec.design,
+        pages=pages,
+        flows=flows,
+        acceptance=tuple(spec.acceptance),
+        done_when=tuple(spec.done_when),
+        entities=structured_normalized.entities,
+        steps=structured_normalized.steps,
+        tests=structured_normalized.tests,
+    )

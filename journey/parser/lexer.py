@@ -21,6 +21,7 @@ class TokenType(Enum):
     ARROW = auto()         # ->
     PIPE = auto()          # |
     DOT = auto()           # .
+    DASH = auto()          # - (standalone, not part of ->)
 
     # Keywords
     JOURNEY = auto()
@@ -41,6 +42,23 @@ class TokenType(Enum):
     CAPTURE = auto()
     AS = auto()
     AUTHENTICATED = auto()
+
+    # Natural-language section keywords
+    MISSION = auto()
+    PAGE = auto()
+    PAGES = auto()
+    FLOWS = auto()
+    ACCEPTANCE = auto()
+    CREW = auto()
+    DONE = auto()
+    WHEN = auto()
+    PURPOSE = auto()
+    RULES = auto()
+    USER = auto()
+    SEES = auto()
+    DESIGN = auto()
+    FIRST = auto()
+    THEN = auto()
 
     # Modifiers
     UNIQUE = auto()
@@ -99,6 +117,31 @@ KEYWORDS = {
     "find": TokenType.FIND,
     "send": TokenType.SEND,
     "verify": TokenType.VERIFY,
+    # Natural-language section keywords
+    "mission": TokenType.MISSION,
+    "page": TokenType.PAGE,
+    "pages": TokenType.PAGES,
+    "flows": TokenType.FLOWS,
+    "acceptance": TokenType.ACCEPTANCE,
+    "crew": TokenType.CREW,
+    "done": TokenType.DONE,
+    "when": TokenType.WHEN,
+    "purpose": TokenType.PURPOSE,
+    "rules": TokenType.RULES,
+    "user": TokenType.USER,
+    "sees": TokenType.SEES,
+    "design": TokenType.DESIGN,
+    "first": TokenType.FIRST,
+    "then": TokenType.THEN,
+}
+
+# Keywords that should only be treated as keywords in hybrid parsing mode.
+# In structured mode, these are treated as plain identifiers to avoid
+# breaking existing .journey files that use these words as field names.
+HYBRID_ONLY_KEYWORDS = {
+    "mission", "page", "pages", "flows", "acceptance", "crew",
+    "done", "when", "purpose", "rules", "user", "sees", "design",
+    "first", "then",
 }
 
 
@@ -122,9 +165,10 @@ class LexerError(Exception):
 
 
 class Lexer:
-    def __init__(self, source: str, filename: str = "<string>"):
+    def __init__(self, source: str, filename: str = "<string>", *, hybrid: bool = False):
         self.source = source
         self.filename = filename
+        self.hybrid = hybrid
         self.pos = 0
         self.line = 1
         self.col = 1
@@ -245,6 +289,9 @@ class Lexer:
                 self.advance()
                 self.advance()
                 self.tokens.append(Token(TokenType.ARROW, "->", line, col))
+            elif ch == "-" and self.hybrid:
+                self.advance()
+                self.tokens.append(Token(TokenType.DASH, "-", line, col))
             elif ch == "=":
                 self.advance()
                 self.tokens.append(Token(TokenType.IDENTIFIER, "=", line, col))
@@ -257,6 +304,9 @@ class Lexer:
             elif ch.isalpha() or ch == "_":
                 value = self.read_identifier()
                 ttype = KEYWORDS.get(value, TokenType.IDENTIFIER)
+                # In structured mode, hybrid-only keywords are plain identifiers
+                if not self.hybrid and value in HYBRID_ONLY_KEYWORDS:
+                    ttype = TokenType.IDENTIFIER
                 self.tokens.append(Token(ttype, value, line, col))
             else:
                 raise self.error(f"Unexpected character: {ch!r}")

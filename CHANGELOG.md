@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.2.13
+
+- Added hybrid journey parser: `.journey` files can now mix natural-language sections (`mission:`, `page "Name":`, `flows:`, `acceptance:`, `crew:`, `done when:`) with structured blocks (`entity`, `step`, `test`) in a single file.
+- Added `HybridJourneySpec` AST, hybrid validation, hybrid normalization, and hybrid agent checklist generation.
+- Auto-detection routes hybrid vs structured files through the existing CLI — `validate`, `inspect`, `status`, `agent`, `manifest`, `watch`, and `execute` all work with hybrid journeys.
+- Added `examples/hybrid_workspace_invite.journey` as a working example of the hybrid format.
+- Added 19 new tests covering hybrid parsing, validation, normalization, CLI commands, agent handoff, watch loop, and execute loop.
+
 ## 0.2.12
 
 - Added a release version preflight that fails tag builds when the Git tag and `pyproject.toml` version disagree.

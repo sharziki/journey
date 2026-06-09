@@ -162,3 +162,83 @@ class TestCommand:
 class TestBlock:
     name: str
     commands: list[TestCommand]
+
+
+# --- Natural-language sections (hybrid mode) ---
+
+
+@dataclass
+class PageRule:
+    """A single rule or acceptance item inside a page spec."""
+    text: str
+
+
+@dataclass
+class PageSpec:
+    """A natural-language page specification."""
+    name: str
+    purpose: Optional[str] = None
+    user_sees: list[str] = field(default_factory=list)
+    rules: list[str] = field(default_factory=list)
+    acceptance: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FlowDef:
+    """A named flow: an ordered sequence of page names."""
+    name: str
+    steps: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CrewRole:
+    """A crew role with a description."""
+    role: str
+    description: str
+
+
+@dataclass
+class HybridJourneySpec:
+    """A journey spec that can contain both natural-language sections and
+    structured blocks (entities, steps, tests).
+
+    This is the first-class representation for handwritten journey files
+    that mix prose intent with structured backend definitions.
+    """
+    name: str
+    description: Optional[str] = None
+    mission: Optional[str] = None
+    design: Optional[str] = None
+    pages: list[PageSpec] = field(default_factory=list)
+    page_names: list[str] = field(default_factory=list)
+    flows: list[FlowDef] = field(default_factory=list)
+    acceptance: list[str] = field(default_factory=list)
+    crew: list[CrewRole] = field(default_factory=list)
+    done_when: list[str] = field(default_factory=list)
+    # Structured blocks (same as JourneySpec)
+    entities: list[Entity] = field(default_factory=list)
+    steps: list[Step] = field(default_factory=list)
+    tests: list[TestBlock] = field(default_factory=list)
+
+    def get_entity(self, name: str) -> Optional[Entity]:
+        for e in self.entities:
+            if e.name == name:
+                return e
+        return None
+
+    def get_step(self, name: str) -> Optional[Step]:
+        for s in self.steps:
+            if s.name == name:
+                return s
+        return None
+
+    def as_journey_spec(self) -> "JourneySpec":
+        """Downcast to a plain JourneySpec for adapters that only understand
+        structured blocks."""
+        return JourneySpec(
+            name=self.name,
+            description=self.description or self.mission,
+            entities=self.entities,
+            steps=self.steps,
+            tests=self.tests,
+        )
